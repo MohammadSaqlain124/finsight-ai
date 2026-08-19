@@ -1,0 +1,21 @@
+@"
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.venv/
+
+# Environment variables (secrets — coming in Step 3)
+.env
+
+# Databases
+*.db
+*.sqlite3
+
+# IDE / OS junk
+.vscode/
+.idea/
+.DS_Store
+"@ | Set-Content -Encoding utf8 .gitignore
