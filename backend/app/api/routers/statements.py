@@ -13,6 +13,7 @@ from app.services.cleaner import clean_transactions
 from datetime import date as date_type
 from app.models.transaction import Transaction
 from app.schemas.transaction import TransactionRead
+from app.services.categorizer import categorize
 
 router = APIRouter(prefix="/api/statements", tags=["statements"])
 
@@ -193,3 +194,45 @@ def list_statement_transactions(
         .order_by(Transaction.date)
         .all()
     )
+    
+@router.post("/{statement_id}/categorize")
+def categorize_statement(
+    statement_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    statement = (
+        db.query(Statement)
+        .filter(Statement.id == statement_id, Statement.user_id == current_user.id)
+        .first()
+    )
+    if statement is None:
+        raise HTTPException(status_code=404, detail="Statement not found")
+
+    transactions = (
+        db.query(Transaction)
+        .filter(Transaction.statement_id == statement.id)
+        .all()
+    )
+    if not transactions:
+        raise HTTPException(status_code=404, detail="No transactions found. Import them first.")
+
+    results = []
+    for txn in transactions:
+        guess = categorize(txn.description, txn.transaction_type)
+        txn.category = guess["category"]   # persist the category on the stored row
+        results.append({
+            "id": txn.id,
+            "description": txn.description,
+            "category": guess["category"],
+            "confidence": guess["confidence"],
+            "matched_keyword": guess["matched_keyword"],
+        })
+
+    db.commit()   # save all the updated categories at once
+
+    return {
+        "statement_id": statement.id,
+        "categorized_count": len(results),
+        "results": results,
+    }
