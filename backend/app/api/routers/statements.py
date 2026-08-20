@@ -2,7 +2,7 @@ import os
 import uuid
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
-
+from app.services.csv_parser import parse_csv
 from app.db.session import get_db
 from app.core.config import settings
 from app.models.user import User
@@ -72,3 +72,39 @@ def list_my_statements(
         .order_by(Statement.uploaded_at.desc())
         .all()
     )
+    
+@router.get("/{statement_id}/preview")
+def preview_statement(
+    statement_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Fetch the statement, scoped to this user (isolation).
+    statement = (
+        db.query(Statement)
+        .filter(Statement.id == statement_id, Statement.user_id == current_user.id)
+        .first()
+    )
+    if statement is None:
+        raise HTTPException(status_code=404, detail="Statement not found")
+
+    if statement.file_type != "csv":
+        raise HTTPException(
+            status_code=400,
+            detail="Preview currently supports CSV only. XLSX and PDF are coming.",
+        )
+
+    file_path = os.path.join(settings.UPLOAD_DIR, statement.stored_filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Stored file is missing.")
+
+    try:
+        rows = parse_csv(file_path)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    return {
+        "statement_id": statement.id,
+        "row_count": len(rows),
+        "preview": rows[:20],   # cap the preview so we don't dump 5000 rows
+    }
