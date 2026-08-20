@@ -19,3 +19,4 @@ venv/
 .idea/
 .DS_Store
 "@ | Set-Content -Encoding utf8 .gitignore
+uploads/
