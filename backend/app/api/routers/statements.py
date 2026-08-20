@@ -9,6 +9,7 @@ from app.models.user import User
 from app.models.statement import Statement
 from app.schemas.statement import StatementRead
 from app.api.deps import get_current_user
+from app.services.cleaner import clean_transactions
 
 router = APIRouter(prefix="/api/statements", tags=["statements"])
 
@@ -99,12 +100,15 @@ def preview_statement(
         raise HTTPException(status_code=404, detail="Stored file is missing.")
 
     try:
-        rows = parse_csv(file_path)
+        raw_rows = parse_csv(file_path)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
+    transactions = clean_transactions(raw_rows)
+
     return {
         "statement_id": statement.id,
-        "row_count": len(rows),
-        "preview": rows[:20],   # cap the preview so we don't dump 5000 rows
+        "raw_row_count": len(raw_rows),
+        "transaction_count": len(transactions),
+        "preview": transactions[:20],
     }
