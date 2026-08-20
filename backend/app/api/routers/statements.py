@@ -10,6 +10,9 @@ from app.models.statement import Statement
 from app.schemas.statement import StatementRead
 from app.api.deps import get_current_user
 from app.services.cleaner import clean_transactions
+from datetime import date as date_type
+from app.models.transaction import Transaction
+from app.schemas.transaction import TransactionRead
 
 router = APIRouter(prefix="/api/statements", tags=["statements"])
 
@@ -112,3 +115,81 @@ def preview_statement(
         "transaction_count": len(transactions),
         "preview": transactions[:20],
     }
+    
+@router.post("/{statement_id}/confirm", response_model=list[TransactionRead], status_code=201)
+def confirm_import(
+    statement_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    statement = (
+        db.query(Statement)
+        .filter(Statement.id == statement_id, Statement.user_id == current_user.id)
+        .first()
+    )
+    if statement is None:
+        raise HTTPException(status_code=404, detail="Statement not found")
+
+    # Guard: don't import the same statement twice.
+    if statement.status == "processed":
+        raise HTTPException(status_code=400, detail="This statement has already been imported.")
+
+    if statement.file_type != "csv":
+        raise HTTPException(status_code=400, detail="Only CSV import is supported so far.")
+
+    file_path = os.path.join(settings.UPLOAD_DIR, statement.stored_filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Stored file is missing.")
+
+    try:
+        raw_rows = parse_csv(file_path)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    cleaned = clean_transactions(raw_rows)
+    if not cleaned:
+        raise HTTPException(status_code=422, detail="No valid transactions found to import.")
+
+    # Build Transaction rows and save them all in one commit.
+    new_transactions = []
+    for row in cleaned:
+        txn = Transaction(
+            user_id=current_user.id,
+            statement_id=statement.id,
+            date=date_type.fromisoformat(row["date"]),
+            description=row["description"],
+            amount=row["amount"],
+            transaction_type=row["transaction_type"],
+            balance=row["balance"],
+        )
+        db.add(txn)
+        new_transactions.append(txn)
+
+    statement.status = "processed"
+    db.commit()
+
+    for txn in new_transactions:
+        db.refresh(txn)
+    return new_transactions
+
+
+@router.get("/{statement_id}/transactions", response_model=list[TransactionRead])
+def list_statement_transactions(
+    statement_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    statement = (
+        db.query(Statement)
+        .filter(Statement.id == statement_id, Statement.user_id == current_user.id)
+        .first()
+    )
+    if statement is None:
+        raise HTTPException(status_code=404, detail="Statement not found")
+
+    return (
+        db.query(Transaction)
+        .filter(Transaction.statement_id == statement.id)
+        .order_by(Transaction.date)
+        .all()
+    )
