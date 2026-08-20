@@ -154,6 +154,8 @@ def confirm_import(
     # Build Transaction rows and save them all in one commit.
     new_transactions = []
     for row in cleaned:
+        # Categorize at import time, using the same service the manual endpoint uses.
+        guess = categorize(row["description"], row["transaction_type"])
         txn = Transaction(
             user_id=current_user.id,
             statement_id=statement.id,
@@ -162,6 +164,7 @@ def confirm_import(
             amount=row["amount"],
             transaction_type=row["transaction_type"],
             balance=row["balance"],
+            category=guess["category"],   # <-- set on creation, not left as default
         )
         db.add(txn)
         new_transactions.append(txn)
