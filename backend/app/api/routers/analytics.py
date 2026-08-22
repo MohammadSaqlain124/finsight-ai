@@ -7,6 +7,7 @@ from app.models.transaction import Transaction
 from app.api.deps import get_current_user
 from app.services.analytics import summarize
 from app.services.analytics import summarize, summarize_by_month
+from app.services.analytics import summarize, summarize_by_month, compare_last_two_months
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -34,3 +35,15 @@ def monthly_summary(
         .all()
     )
     return {"months": summarize_by_month(transactions)}
+
+@router.get("/comparison")
+def monthly_comparison(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    transactions = (
+        db.query(Transaction)
+        .filter(Transaction.user_id == current_user.id)
+        .all()
+    )
+    return compare_last_two_months(transactions)
