@@ -7,6 +7,7 @@ from app.api.routers import auth, users
 from app.models.statement import Statement  # noqa: F401
 from app.api.routers import auth, users, statements
 from app.models.transaction import Transaction  # noqa: F401
+from app.api.routers import auth, users, statements, analytics
 
 app = FastAPI(title="FinSight AI")
 
@@ -15,6 +16,7 @@ Base.metadata.create_all(bind=engine)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(statements.router)
+app.include_router(analytics.router)
 
 @app.get("/health")
 def health_check():
