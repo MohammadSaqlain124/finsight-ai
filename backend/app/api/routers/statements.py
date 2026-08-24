@@ -153,18 +153,37 @@ def confirm_import(
 
     # Build Transaction rows and save them all in one commit.
     new_transactions = []
+    skipped_duplicates = 0
     for row in cleaned:
-        # Categorize at import time, using the same service the manual endpoint uses.
+        txn_date = date_type.fromisoformat(row["date"])
+
+        # Duplicate guard: skip if an identical transaction already exists
+        # for this user (same date + description + amount). Prevents the same
+        # statement being imported twice from polluting analytics. (Spec §26)
+        existing = (
+            db.query(Transaction)
+            .filter(
+                Transaction.user_id == current_user.id,
+                Transaction.date == txn_date,
+                Transaction.description == row["description"],
+                Transaction.amount == row["amount"],
+            )
+            .first()
+        )
+        if existing is not None:
+            skipped_duplicates += 1
+            continue
+
         guess = categorize(row["description"], row["transaction_type"])
         txn = Transaction(
             user_id=current_user.id,
             statement_id=statement.id,
-            date=date_type.fromisoformat(row["date"]),
+            date=txn_date,
             description=row["description"],
             amount=row["amount"],
             transaction_type=row["transaction_type"],
             balance=row["balance"],
-            category=guess["category"],   # <-- set on creation, not left as default
+            category=guess["category"],
         )
         db.add(txn)
         new_transactions.append(txn)
