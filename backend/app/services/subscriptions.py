@@ -32,7 +32,7 @@ def detect_subscriptions(transactions: list) -> list:
 
     subscriptions = []
     for merchant, txns in by_merchant.items():
-        if len(txns) < 2:
+        if len(txns) < 3:
             continue  # can't establish a rhythm from a single payment
 
         txns.sort(key=lambda t: t.date)
@@ -56,6 +56,12 @@ def detect_subscriptions(transactions: list) -> list:
 
         amounts = [t.amount for t in txns]
         avg_amount = mean(amounts)
+        # A real subscription charges a consistent amount. If the amounts vary
+        # by more than ~15% of the average, it's probably not recurring —
+        # more likely repeated but unrelated purchases at the same merchant.
+        amount_spread = pstdev(amounts) if len(amounts) > 1 else 0
+        if avg_amount > 0 and (amount_spread / avg_amount) > 0.15:
+            continue  # amounts too inconsistent to be a subscription
 
         # Confidence: higher when the interval is consistent AND it's a known rhythm.
         confidence = 0.5
