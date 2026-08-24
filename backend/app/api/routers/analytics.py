@@ -8,6 +8,7 @@ from app.api.deps import get_current_user
 from app.services.analytics import summarize
 from app.services.analytics import summarize, summarize_by_month
 from app.services.analytics import summarize, summarize_by_month, compare_last_two_months
+from app.services.subscriptions import detect_subscriptions
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -47,3 +48,23 @@ def monthly_comparison(
         .all()
     )
     return compare_last_two_months(transactions)
+
+@router.get("/subscriptions")
+def subscriptions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    transactions = (
+        db.query(Transaction)
+        .filter(Transaction.user_id == current_user.id)
+        .all()
+    )
+    found = detect_subscriptions(transactions)
+    total_monthly = round(sum(
+        s["average_amount"] for s in found if s["frequency"] == "monthly"
+    ), 2)
+    return {
+        "count": len(found),
+        "estimated_monthly_total": total_monthly,
+        "subscriptions": found,
+    }
