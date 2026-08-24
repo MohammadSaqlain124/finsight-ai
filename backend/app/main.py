@@ -8,6 +8,7 @@ from app.models.statement import Statement  # noqa: F401
 from app.api.routers import auth, users, statements
 from app.models.transaction import Transaction  # noqa: F401
 from app.api.routers import auth, users, statements, analytics
+from app.models.subscription import Subscription  # noqa: F401
 
 app = FastAPI(title="FinSight AI")
 
