@@ -1,24 +1,27 @@
+import { Routes, Route, Navigate, Link } from 'react-router-dom'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import Dashboard from './pages/Dashboard'
+
 function App() {
   return (
-    <main style={{ padding: "4rem", maxWidth: "640px" }}>
-      <p style={{ color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.15em", fontSize: "var(--text-sm)" }}>
-        FinSight AI
-      </p>
-      <h1 style={{ fontSize: "var(--text-3xl)", marginTop: "0.5rem" }}>
-        Your money, in the black.
-      </h1>
-
-      <div style={{ borderTop: "1px solid var(--rule)", marginTop: "2.5rem", paddingTop: "1.5rem" }}>
-        <p style={{ color: "var(--ink-soft)", fontSize: "var(--text-sm)" }}>Net balance</p>
-        <p className="figure" style={{ fontSize: "var(--text-2xl)" }}>₹1,24,750.00</p>
-      </div>
-
-      <div style={{ borderTop: "1px solid var(--rule)", marginTop: "1.5rem", paddingTop: "1.5rem" }}>
-        <p style={{ color: "var(--ink-soft)", fontSize: "var(--text-sm)" }}>Biggest expense</p>
-        <p className="figure figure--negative" style={{ fontSize: "var(--text-xl)" }}>-₹75,000.00</p>
-      </div>
-    </main>
-  );
+    <Routes>
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  )
 }
 
-export default App;
+function NotFound() {
+  return (
+    <main style={{ padding: '4rem' }}>
+      <h1>404</h1>
+      <p><Link to="/login">Back to sign in</Link></p>
+    </main>
+  )
+}
+
+export default App
