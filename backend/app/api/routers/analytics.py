@@ -12,6 +12,7 @@ from app.services.subscriptions import detect_subscriptions
 from datetime import date as date_type
 from app.models.subscription import Subscription
 from app.schemas.subscription import SubscriptionRead
+from app.services.anomalies import detect_anomalies
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -149,3 +150,16 @@ def dismiss_subscription(
     db.commit()
     db.refresh(sub)
     return sub
+
+@router.get("/anomalies")
+def anomalies(
+    method: str = "zscore",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    transactions = (
+        db.query(Transaction)
+        .filter(Transaction.user_id == current_user.id)
+        .all()
+    )
+    return detect_anomalies(transactions, method=method)
