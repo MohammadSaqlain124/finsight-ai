@@ -1,0 +1,40 @@
+.button {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--pine);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Primary — pine ink, paper text */
+.primary {
+  background-color: var(--pine);
+  color: var(--paper);
+}
+.primary:hover:not(:disabled) {
+  background-color: var(--pine-strong);
+}
+
+/* Secondary — quiet outline */
+.secondary {
+  background-color: transparent;
+  color: var(--ink);
+  border-color: var(--rule);
+}
+.secondary:hover:not(:disabled) {
+  border-color: var(--ink);
+}
