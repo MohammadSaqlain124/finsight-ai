@@ -4,7 +4,7 @@ import AuthLayout from '../components/AuthLayout'
 import TextField from '../components/TextField'
 import Button from '../components/Button'
 import { apiFetch } from '../lib/api'
-import { saveToken } from '../lib/auth'
+import { useAuth } from '../context/AuthContext'
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -12,6 +12,7 @@ function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const { login } = useAuth()
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -22,7 +23,7 @@ function Login() {
         method: 'POST',
         form: { username: email, password },   // OAuth2 field is "username"; we pass the email
       })
-      saveToken(data.access_token)
+      await login(data.access_token)   // context saves token + fetches user
       navigate('/dashboard')
     } catch (err) {
       setError(err.message)
