@@ -1,173 +1,204 @@
 # FinSight AI — Project State
 
-**Purpose of this file:** A complete handoff snapshot so a new chat can continue building without re-explaining anything. Read this top to bottom before starting.
+FinSight AI is an AI-assisted personal finance analyzer built as a final-year B.Tech Computer Science capstone project. Users upload their bank statements; the application extracts, cleans, categorizes, and analyzes the transactions to surface practical financial insight — spending summaries, month-over-month comparisons, recurring-subscription detection, and anomaly detection — through a clean web dashboard.
+
+The project is built to be understood, not merely to run. Each significant technical decision is deliberate and documented, so the architecture can be explained and defended in depth.
+
+- **Repository:** github.com/MohammadSaqlain124/finsight-ai
+- **Author:** Mohd Saqlain Hussain — B.Tech CSE, Invertis University
+- **Status:** Backend analysis engine complete. Frontend authentication and application shell complete; data dashboard and responsive layout in progress.
 
 ---
 
-## 1. What this project is
+## Tech stack
 
-**FinSight AI** — an AI-powered personal finance analyzer. Final-year B.Tech CSE capstone project. Users upload bank statements (CSV for now; XLSX/PDF planned), and the system extracts, cleans, categorizes, and analyzes transactions to produce financial insights (summaries, monthly comparisons, subscription detection, anomaly detection, and more to come).
+**Backend**
+- FastAPI (Python) — REST API
+- SQLAlchemy 2.0 ORM with SQLite for development (schema designed to migrate to PostgreSQL)
+- Pydantic v2 and pydantic-settings for validation and configuration
+- JWT authentication (PyJWT) with bcrypt password hashing
+- pandas for statement parsing and cleaning
 
-**The project must be viva-defensible** — understanding the *why* behind each technical decision matters as much as the code. Build incrementally, explain reasoning, test before every commit.
+**Frontend**
+- React, built with Vite
+- react-router-dom for client-side routing
+- Plain CSS using CSS custom properties (design tokens) and CSS Modules for component-scoped styling — deliberately no UI framework, to keep full control over a bespoke visual identity
+- IBM Plex type family (Serif for display, Sans for UI, Mono for financial figures)
 
-- **GitHub:** github.com/MohammadSaqlain124/finsight-ai
-- **Developer:** Sam (Mohd Saqlain Hussain), 3rd-year CSE, Invertis University
-- **Environment:** Windows, Python 3.13.7, VS Code, PowerShell, venv at `E:\Projects\finsight-ai\backend\venv`
-
----
-
-## 2. How we work together (important — keep this style)
-
-- **Guided build, NOT code dumps.** Walk Sam through each component step by step with reasoning. No downloadable zips of the whole thing. He builds it himself and understands every line.
-- **Test before commit.** Every commit is verified working first. Never commit untested code (this is a firm rule — a viva repo where every commit works is the whole point).
-- **Read the response body, not just the status code.** Several real bugs returned HTTP 200 with wrong data. Always verify the actual values, ideally by hand-reconciling against known test data.
-- **One step at a time.** Sam prefers not to be overwhelmed; incremental progress with a verify step and a commit after each.
-- **Pacing matters.** Sam has an L5-S1 disc condition (post-surgery) and has had low-energy / migraine days. Suggest breaks; don't push for commit-count over quality.
-- **Grammar corrections** on Sam's messages are welcome, brief.
-- Commits double as a GitHub-streak habit — but quality over count, always.
+**Authentication model:** JWT bearer tokens. Login uses the OAuth2 password flow; the signed token is stored in the browser and attached to every authenticated request. Protected API routes resolve the current user through a FastAPI dependency; protected frontend routes are guarded by a route wrapper that redirects unauthenticated users to the sign-in page.
 
 ---
 
-## 3. Tech stack (as built)
+## Architecture at a glance
 
-**Backend (complete for phases 1-5):**
-- FastAPI (with `fastapi[standard]`, run via `fastapi dev app/main.py`)
-- SQLAlchemy 2.0 ORM, SQLite dev DB (`finsight.db`), `DATABASE_URL` designed to swap to PostgreSQL later
-- Pydantic v2 + pydantic-settings (config from `.env`)
-- bcrypt (password hashing, direct library), PyJWT (JWT auth)
-- pandas (CSV parsing + cleaning)
-- python-multipart (form/upload support)
-
-**Frontend (NOT STARTED — this is next):**
-- Planned: React via **Vite**, talking to the FastAPI backend
-- Spec wants: React, Chart.js/Recharts, responsive dashboard
-
-**Auth model:** JWT bearer tokens. `OAuth2PasswordRequestForm` login (username field = email). Token `sub` = user id. Protected routes use a `get_current_user` dependency.
-
----
-
-## 4. Project structure (backend)
+A React single-page application (served by Vite in development) communicates over HTTP with the FastAPI backend, which persists data in SQLite. After login, the browser holds a signed JWT and sends it as a bearer token on every authenticated request; the backend validates the token and scopes all data to the authenticated user. Cross-origin requests between the development frontend and backend are permitted by CORS middleware.
 
 ```
-finsight-ai/
-├── .gitignore              # ignores venv/, __pycache__/, .env, *.db, uploads/
-├── README.md               # project overview, architecture, setup, security
-└── backend/
-    ├── .env                # SECRET_KEY (64-hex), token expiry — git-ignored
-    ├── finsight.db         # SQLite — git-ignored
-    ├── uploads/            # UUID-named uploaded files — git-ignored
-    └── app/
-        ├── __init__.py
-        ├── main.py         # FastAPI app, CORS, create_all, includes all routers
-        ├── core/
-        │   ├── config.py       # Settings (SECRET_KEY, token expiry, UPLOAD_DIR, MAX_UPLOAD_MB)
-        │   └── security.py     # hash_password, verify_password, create_access_token, decode_access_token
-        ├── db/
-        │   ├── base.py         # Base (DeclarativeBase)
-        │   └── session.py      # engine, SessionLocal, get_db()
-        ├── models/
-        │   ├── user.py         # User
-        │   ├── statement.py    # Statement
-        │   ├── transaction.py  # Transaction
-        │   └── subscription.py # Subscription
-        ├── schemas/
-        │   ├── user.py         # UserCreate, UserRead
-        │   ├── token.py        # Token
-        │   ├── statement.py    # StatementRead
-        │   ├── transaction.py  # TransactionRead
-        │   └── subscription.py # SubscriptionRead
-        ├── services/
-        │   ├── csv_parser.py    # parse_csv — column-alias normalization, NaN-safe
-        │   ├── cleaner.py       # clean_transactions — dates, amounts, income/expense
-        │   ├── categorizer.py   # categorize — rule-based + confidence
-        │   ├── analytics.py     # summarize, summarize_by_month, compare_last_two_months
-        │   ├── subscriptions.py # detect_subscriptions
-        │   └── anomalies.py     # detect_anomalies (zscore + iqr)
-        └── api/
-            ├── deps.py          # get_current_user (token -> User)
-            └── routers/
-                ├── auth.py        # /api/auth/register, /login
-                ├── users.py       # /api/users/me
-                ├── statements.py  # upload, list, preview, confirm, transactions, categorize
-                └── analytics.py   # summary, monthly, comparison, subscriptions(+detect/saved/dismiss), anomalies
+React SPA (Vite, :5173)  ──HTTP + JWT──▶  FastAPI (:8000)  ──▶  SQLite
 ```
 
 ---
 
-## 5. Data models (current schema)
+## Features implemented
 
-**User:** id, email (unique), full_name, hashed_password, is_active, created_at
+**Authentication and users**
+- Registration with bcrypt-hashed passwords, login that issues a JWT, and a protected "current user" endpoint.
+- Frontend: styled sign-in and registration pages, token persistence, automatically attached bearer authentication, a protected dashboard, session restoration on page refresh, and sign-out.
 
-**Statement:** id, user_id (FK), original_filename, stored_filename (UUID name on disk), file_type, status (uploaded → processed), uploaded_at
+**Statement pipeline**
+- Secure file upload with UUID-based storage and validation.
+- CSV parsing with column-alias normalization, so statements from different banks with different header names are understood.
+- Data cleaning covering multi-format dates, currency symbols, thousands separators, and empty cells.
+- A preview-then-confirm import flow, with a content-based duplicate guard that prevents the same statement being imported twice.
 
-**Transaction:** id, user_id (FK), statement_id (FK), date (real Date), description, amount (float, positive magnitude), transaction_type (income/expense), category (default "Uncategorized"), balance (nullable), created_at
-
-**Subscription:** id, user_id (FK), merchant, average_amount, frequency, occurrences, estimated_annual_cost, confidence, last_payment, user_dismissed (bool, soft-dismiss), detected_at
-
----
-
-## 6. API endpoints (all working & tested)
-
-**Auth**
-- `POST /api/auth/register` → create user (201)
-- `POST /api/auth/login` → JWT token (form: username=email, password)
-- `GET /api/users/me` → current user (protected)
-
-**Statements / pipeline**
-- `POST /api/statements/upload` → validate + save file (UUID rename), status "uploaded"
-- `GET /api/statements` → list user's statements
-- `GET /api/statements/{id}/preview` → parse + clean, show transactions (not stored)
-- `POST /api/statements/{id}/confirm` → store transactions, auto-categorize, dedup guard, status "processed"
-- `GET /api/statements/{id}/transactions` → stored transactions for a statement
-- `POST /api/statements/{id}/categorize` → re-categorize stored transactions
+**Categorization**
+- Rule-based transaction categorization with confidence scores and keyword-level explainability, applied automatically on import.
 
 **Analytics**
-- `GET /api/analytics/summary` → totals, savings rate, category breakdown, biggest expense
-- `GET /api/analytics/monthly` → per-month breakdown (grouped by YYYY-MM)
-- `GET /api/analytics/comparison` → last-two-months comparison + "what_changed" English insights
-- `GET /api/analytics/subscriptions` → live detection (not stored)
-- `POST /api/analytics/subscriptions/detect` → detect + STORE (respects dismissals, no dupes)
-- `GET /api/analytics/subscriptions/saved?include_dismissed=false` → stored subs
-- `PATCH /api/analytics/subscriptions/{id}/dismiss` → soft-dismiss a subscription
-- `GET /api/analytics/anomalies?method=zscore|iqr` → unusual-transaction detection
+- Financial summary: income, expenses, savings rate, category breakdown, and largest expense.
+- Per-month breakdown and month-over-month comparison, including plain-English "what changed" insights.
+
+**Recurring payments**
+- Subscription detection using interval-rhythm and amount-consistency analysis, with database persistence, a soft-dismiss capability, and dismissal-aware re-detection.
+
+**Anomaly detection**
+- Unusual-transaction detection offered through two user-selectable methods — z-score and interquartile range (IQR) — each returning a human-readable reason.
+
+**Design system — "Modern Ledger"**
+- A deliberate visual identity grounded in bookkeeping: a cool "ledger paper" background rather than plain white, ink-black and ledger-red semantics ("in the black" / "in the red"), and monospaced tabular figures so financial numbers align in columns like a real statement.
+- Reusable, accessible components (button, text field, authentication layout) built on a CSS custom-property token system, so the entire theme can be adjusted from one place.
 
 ---
 
-## 7. Phase progress
+## Project structure
 
-- **Phase 1 — DONE:** FastAPI setup, DB engine, User model, bcrypt hashing, JWT auth, protected /me
-- **Phase 2 — DONE:** Secure upload (UUID rename, validation), CSV parsing (column aliases), cleaning (dates/amounts/income-expense), preview-then-confirm, persist transactions, content-based duplicate guard
-- **Phase 3 — DONE:** Rule-based categorization + confidence scores + explainability; auto-categorize on import
-- **Phase 4 — DONE:** Financial summary; per-month grouping; month-vs-month comparison with % change, direction, and "What Changed?" insights
-- **Phase 5 — DONE:** Subscription detection (interval rhythm + amount-consistency, false-positive rejection); persistent storage with soft-dismiss + dismissal-aware re-detection; anomaly detection (z-score AND IQR, user-selectable, explainable reasons)
+**Backend**
 
-**~12 commits pushed. Backend analysis engine is complete.**
+```
+backend/
+├── .env                    # secret key, token settings (git-ignored)
+├── finsight.db             # SQLite database (git-ignored)
+├── uploads/                # UUID-named uploaded files (git-ignored)
+└── app/
+    ├── main.py             # app setup, CORS, router registration
+    ├── core/               # configuration and security (hashing, JWT)
+    ├── db/                 # engine, session, base
+    ├── models/             # User, Statement, Transaction, Subscription
+    ├── schemas/            # Pydantic request/response models
+    ├── services/           # parsing, cleaning, categorization, analytics,
+    │                       #   subscriptions, anomalies
+    └── api/
+        ├── deps.py         # current-user dependency
+        └── routers/        # auth, users, statements, analytics
+```
 
-**NOT built yet:** XLSX/PDF parsing, financial health score, budget recommendations, financial goals, cash-flow prediction, AI summary/NL assistant, export, tests, **and the entire frontend.**
+**Frontend**
+
+```
+frontend/
+├── index.html
+├── vite.config.js
+├── package.json
+└── src/
+    ├── main.jsx            # entry — BrowserRouter + AuthProvider
+    ├── App.jsx             # route table
+    ├── index.css           # design tokens and base styles
+    ├── context/
+    │   └── AuthContext.jsx     # global auth state (user, login, logout)
+    ├── lib/
+    │   ├── api.js              # fetch wrapper: JSON + form bodies, bearer auth, errors
+    │   └── auth.js             # token storage helpers
+    ├── components/
+    │   ├── Button.jsx  (+ .module.css)
+    │   ├── TextField.jsx  (+ .module.css)
+    │   ├── AuthLayout.jsx  (+ .module.css)
+    │   └── ProtectedRoute.jsx
+    └── pages/
+        ├── Login.jsx
+        ├── Register.jsx
+        └── Dashboard.jsx
+```
 
 ---
 
-## 8. Key learnings / bugs caught (viva-worthy — remember these)
+## Data models
 
-- **NaN → JSON crash:** pandas empty cells become NaN, which isn't valid JSON → 500 on serialize. Fixed by sanitizing to None *after* leaving the DataFrame (pandas float columns coerce None back to NaN, so `.where()` inside the DF didn't work).
-- **dayfirst date-swap:** `dayfirst=True` wrongly swapped ISO dates (2026-08-01 → Jan 8). Fixed by detecting ISO format via regex and only applying dayfirst to non-ISO dates.
-- **Subscription false positives (two rounds):** 2-occurrence merchants and inconsistent amounts got flagged. Fixed by requiring 3+ occurrences AND a coefficient-of-variation (amount consistency) check.
-- **Duplicate data pollution (hit 3x):** re-importing the same statement doubled transactions, wrecking analytics/subscriptions. Fixed with a content-based duplicate guard (skip if same user+date+description+amount already exists).
-- **z-score vs IQR insight:** on data with one extreme outlier, z-score flagged fewer anomalies because the outlier inflates the mean/std (hiding smaller anomalies), while IQR (median-based) stayed robust. Good to explain in viva.
-- **General:** always stop the server before deleting finsight.db (Windows file lock). After deleting the DB, re-register + re-authorize (old JWT points to a now-nonexistent user → 401).
+- **User:** id, email (unique), full name, hashed password, active flag, created-at.
+- **Statement:** id, owner, original filename, stored (UUID) filename, file type, status (uploaded → processed), uploaded-at.
+- **Transaction:** id, owner, statement, date, description, amount (positive magnitude), type (income / expense), category, balance (optional), created-at.
+- **Subscription:** id, owner, merchant, average amount, frequency, occurrences, estimated annual cost, confidence, last payment, dismissed flag, detected-at.
 
 ---
 
-## 9. Test data files used (in backend/, recreate as needed)
+## API endpoints
 
-Sam has been testing with small CSVs using varied headers (Txn Date/Narration/Withdrawal/Deposit/Balance) to exercise the column-alias mapping, plus multi-month files for comparison, a subs.csv (NETFLIX/SPOTIFY ×3 monthly) for subscription detection, and an anomaly_test.csv (normal spends + one ₹75,000 laptop outlier) for anomaly detection.
+**Authentication**
+- `POST /api/auth/register` — create a user
+- `POST /api/auth/login` — obtain a JWT (OAuth2 password flow)
+- `GET /api/users/me` — current user (protected)
+
+**Statements and pipeline**
+- `POST /api/statements/upload` — validate and store an uploaded file
+- `GET /api/statements` — list the user's statements
+- `GET /api/statements/{id}/preview` — parse and clean, without storing
+- `POST /api/statements/{id}/confirm` — store transactions, auto-categorize, de-duplicate
+- `GET /api/statements/{id}/transactions` — stored transactions for a statement
+- `POST /api/statements/{id}/categorize` — re-categorize stored transactions
+
+**Analytics**
+- `GET /api/analytics/summary` — totals, savings rate, category breakdown, biggest expense
+- `GET /api/analytics/monthly` — per-month breakdown
+- `GET /api/analytics/comparison` — last-two-months comparison with insights
+- `GET /api/analytics/subscriptions` — live detection
+- `POST /api/analytics/subscriptions/detect` — detect and store
+- `GET /api/analytics/subscriptions/saved` — stored subscriptions
+- `PATCH /api/analytics/subscriptions/{id}/dismiss` — soft-dismiss a subscription
+- `GET /api/analytics/anomalies?method=zscore|iqr` — unusual-transaction detection
 
 ---
 
-## 10. NEXT UP → FRONTEND (React + Vite)
+## Notable engineering decisions and problems solved
 
-This is the immediate task in the new chat. See the accompanying prompt. Key constraints:
-- **Full React app via Vite**, talking to the FastAPI backend.
-- **The UI must NOT look like a generic AI-generated site** (no default purple gradients / glassmorphism / Inter-everywhere / center-everything template look). Sam will provide reference design images for inspiration (analyze for direction, don't copy).
-- Follow the same guided, incremental, test-before-commit approach.
-- Likely first slices: Vite setup + CORS, auth pages (login/register), then the dashboard consuming /api/analytics/summary.
+- **NaN and JSON serialization.** Empty cells become `NaN` in pandas, which is not valid JSON and caused serialization failures. Because pandas can silently coerce `None` back to `NaN` inside a float column, values are sanitized to `None` only *after* leaving the DataFrame.
+- **Ambiguous date parsing.** Applying day-first parsing globally corrupted ISO dates (e.g. `2026-08-01` read as 8 January). ISO-formatted dates are now detected first, and day-first interpretation is applied only to non-ISO input.
+- **Subscription false positives.** Early detection flagged coincidental repeats. Detection now requires a minimum number of occurrences and an amount-consistency check (coefficient of variation) before a merchant is treated as recurring.
+- **Duplicate data pollution.** Re-importing a statement previously doubled transactions and skewed analytics. A content-based duplicate guard now skips any transaction matching an existing owner, date, description, and amount.
+- **Robustness of anomaly methods.** A single extreme outlier inflates the mean and standard deviation, which can hide smaller anomalies from the z-score method; the median-based IQR method stays robust. Offering both, side by side, makes the trade-off explicit.
+- **Cross-origin access.** The browser blocks responses between the frontend (`:5173`) and backend (`:8000`) as different origins; CORS middleware on the backend grants access to the specific development origin, rather than using a permissive wildcard.
+- **Login content type.** The OAuth2 password flow expects form-encoded data with a `username` field, not JSON, so the API client sends the two request styles appropriately.
+- **Token storage trade-off.** The JWT is stored in `localStorage` for simplicity; this is readable by JavaScript and therefore exposed to XSS, whereas an httpOnly cookie with CSRF protection is the more secure production choice. The trade-off is understood and documented rather than accidental.
+
+**Working practices.** Development proceeds in small, independently verifiable steps; each commit is confirmed working before it is pushed, so every point in the history builds and runs. Behaviour is verified against actual response data, not only HTTP status codes, and previously passing cases are re-checked after each change.
+
+---
+
+## Running locally
+
+Both servers run together during development.
+
+**Backend**
+```
+cd backend
+python -m venv venv
+venv\Scripts\activate            # Windows
+pip install -r requirements.txt
+# create .env with SECRET_KEY and token settings
+fastapi dev app/main.py          # serves on http://localhost:8000
+```
+
+**Frontend**
+```
+cd frontend
+npm install
+npm run dev                      # serves on http://localhost:5173
+```
+
+---
+
+## Roadmap
+
+- **Responsive layout** for the authentication pages and dashboard (mobile and tablet).
+- **Data dashboard** consuming the analytics endpoints — summary figures, category breakdown, monthly trends, subscriptions, and anomalies — rendered in the Modern Ledger style.
+- **Refined visual identity** — a marble brand panel; the art direction is chosen, with a license-clear asset to be finalized.
+- **Additional backend capabilities** — XLSX and PDF statement parsing, a financial health score, budget recommendations, savings goals, cash-flow prediction, natural-language summaries, and data export.
+- **Automated testing.**
