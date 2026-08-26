@@ -1,6 +1,12 @@
 /* ============ Design tokens ============ */
 :root {
   /* Color — drawn from the ledger: ink, red, paper */
+    /* Marble brand panel */
+  --oxblood:      #3A1519;
+  --emerald:      #123524;
+  --cream:        #EFEDE4;
+  --gold:         #C9A15A;
+  --neg-panel:    #E7B2AD;  /* expense figures on the dark panel */
   --paper:        #EAEDE6;  /* base — cool ledger paper, not cream */
   --paper-raised: #F2F4EE;  /* cards / raised surfaces */
   --ink:          #1A1A17;  /* primary text; surplus, "in the black" */
