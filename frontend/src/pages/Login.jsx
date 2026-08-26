@@ -1,16 +1,34 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import AuthLayout from '../components/AuthLayout'
 import TextField from '../components/TextField'
 import Button from '../components/Button'
+import { apiFetch } from '../lib/api'
+import { saveToken } from '../lib/auth'
 
 function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    console.log('would sign in with:', { email, password })
+    setError('')
+    setLoading(true)
+    try {
+      const data = await apiFetch('/api/auth/login', {
+        method: 'POST',
+        form: { username: email, password },   // OAuth2 field is "username"; we pass the email
+      })
+      saveToken(data.access_token)
+      navigate('/dashboard')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -26,7 +44,16 @@ function Login() {
         <TextField label="Password" id="password" type="password" value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••" autoComplete="current-password" required />
-        <Button type="submit" variant="primary">Sign in</Button>
+
+        {error && (
+          <p style={{ color: 'var(--ledger-red)', fontSize: 'var(--text-sm)', margin: 0 }}>
+            {error}
+          </p>
+        )}
+
+        <Button type="submit" variant="primary" disabled={loading}>
+          {loading ? 'Signing in…' : 'Sign in'}
+        </Button>
       </form>
     </AuthLayout>
   )

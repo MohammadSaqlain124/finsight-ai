@@ -1,9 +1,13 @@
 const BASE_URL = 'http://localhost:8000'  // dev backend; becomes a Vite env var at deploy time
 
-export async function apiFetch(path, { method = 'GET', body } = {}) {
+export async function apiFetch(path, { method = 'GET', body, form } = {}) {
   const options = { method, headers: {} }
 
-  if (body !== undefined) {
+  if (form !== undefined) {
+    // OAuth2PasswordRequestForm expects x-www-form-urlencoded, not JSON
+    options.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+    options.body = new URLSearchParams(form).toString()
+  } else if (body !== undefined) {
     options.headers['Content-Type'] = 'application/json'
     options.body = JSON.stringify(body)
   }
