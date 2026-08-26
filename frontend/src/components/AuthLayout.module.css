@@ -10,12 +10,21 @@
   overflow: hidden;
   padding: 3.5rem;
   color: var(--cream);
-  background:
-    linear-gradient(118deg,
-      var(--oxblood) 0%, #2A1E1C 24%, var(--emerald) 46%,
-      #3E5044 60%, rgba(147,147,132,0.12) 76%, transparent 88%),
-    radial-gradient(140% 120% at 12% 8%, #4A1A20 0%, transparent 42%),
-    radial-gradient(120% 130% at 30% 95%, #0C2A1E 0%, transparent 46%),
+    background:
+    linear-gradient(90deg,
+      rgba(58,21,25,0) 40%,
+      var(--paper) 72%),
+    linear-gradient(120deg,
+      var(--oxblood) 0%,
+      #351B1C 18%,
+      #24291F 34%,
+      var(--emerald) 50%,
+      #2E4438 64%,
+      #6E7566 78%,
+      rgba(234,237,230,0.85) 90%,
+      var(--paper) 100%),
+    radial-gradient(150% 130% at 10% 5%, #4A1A20 0%, transparent 48%),
+    radial-gradient(130% 140% at 26% 98%, #0C2A1E 0%, transparent 52%),
     var(--paper);
 }
 .brand::before {
