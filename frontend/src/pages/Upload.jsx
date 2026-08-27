@@ -1,0 +1,102 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { apiFetch } from '../lib/api'
+import { formatINR } from '../lib/format'
+import Button from '../components/Button'
+import styles from './Upload.module.css'
+
+function Upload() {
+  const [file, setFile] = useState(null)
+  const [preview, setPreview] = useState(null)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleUpload(e) {
+    e.preventDefault()
+    if (!file) return
+    setError('')
+    setPreview(null)
+    setLoading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)   // field name MUST be "file"
+      const statement = await apiFetch('/api/statements/upload', { method: 'POST', formData })
+      const previewData = await apiFetch(`/api/statements/${statement.id}/preview`)
+      setPreview({ ...previewData, statementId: statement.id })
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className={styles.page}>
+      <header className={styles.topbar}>
+        <p className={styles.wordmark}>FinSight AI</p>
+        <Link to="/dashboard" className={styles.back}>← Dashboard</Link>
+      </header>
+
+      <main className={styles.main}>
+        <h1 className={styles.title}>Upload a statement</h1>
+        <p className={styles.muted}>
+          Choose a CSV bank statement. FinSight parses and cleans it, then shows a preview —
+          nothing is saved until you confirm.
+        </p>
+
+        <form onSubmit={handleUpload} className={styles.uploader}>
+          <input
+            type="file"
+            accept=".csv"
+            onChange={(e) => setFile(e.target.files[0] || null)}
+            className={styles.fileInput}
+          />
+          <Button type="submit" variant="primary" disabled={!file || loading}>
+            {loading ? 'Uploading…' : 'Upload & preview'}
+          </Button>
+        </form>
+
+        {error && <p className={styles.error}>{error}</p>}
+
+        {preview && (
+          <section className={styles.previewBlock}>
+            <p className={styles.previewMeta}>
+              Parsed <strong>{preview.transaction_count}</strong> transactions
+              from <strong>{preview.raw_row_count}</strong> rows
+              {preview.transaction_count > 20 && ' — showing the first 20'}.
+            </p>
+
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th className={styles.right}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.preview.map((t, i) => (
+                    <tr key={i}>
+                      <td className={styles.mono}>{t.date}</td>
+                      <td>{t.description}</td>
+                      <td className={`${styles.right} figure ${t.transaction_type === 'expense' ? 'figure--negative' : ''}`}>
+                        {t.transaction_type === 'expense' ? formatINR(-t.amount) : formatINR(t.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p className={styles.muted} style={{ marginTop: '1rem' }}>
+              Looks right? The confirm step (which saves these) comes next.
+            </p>
+          </section>
+        )}
+      </main>
+    </div>
+  )
+}
+
+export default Upload

@@ -49,10 +49,10 @@ function Dashboard() {
         {!loading && !error && !hasData && (
           <div className={styles.empty}>
             <h1 className={styles.emptyTitle}>No transactions yet</h1>
-            <p className={styles.muted}>
+            <p className={styles.muted} style={{ marginBottom: '1.5rem' }}>
               Upload a bank statement and FinSight will categorize and analyze it here.
-              The upload flow is coming next.
             </p>
+            <Button variant="primary" onClick={() => navigate('/upload')}>Upload a statement</Button>
           </div>
         )}
 

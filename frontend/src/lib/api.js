@@ -2,7 +2,7 @@ import { getToken } from './auth'
 
 const BASE_URL = 'http://localhost:8000'
 
-export async function apiFetch(path, { method = 'GET', body, form } = {}) {
+export async function apiFetch(path, { method = 'GET', body, form, formData } = {}) {
   const options = { method, headers: {} }
 
   const token = getToken()
@@ -10,7 +10,11 @@ export async function apiFetch(path, { method = 'GET', body, form } = {}) {
     options.headers['Authorization'] = `Bearer ${token}`
   }
 
-  if (form !== undefined) {
+  if (formData !== undefined) {
+    // multipart/form-data — DON'T set Content-Type; the browser must set it
+    // itself so it can include the multipart boundary marker.
+    options.body = formData
+  } else if (form !== undefined) {
     options.headers['Content-Type'] = 'application/x-www-form-urlencoded'
     options.body = new URLSearchParams(form).toString()
   } else if (body !== undefined) {
