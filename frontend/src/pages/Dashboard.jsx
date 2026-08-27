@@ -6,8 +6,6 @@ import { formatINR, formatMonth } from '../lib/format'
 import Button from '../components/Button'
 import styles from './Dashboard.module.css'
 
-// Financial good/bad tone for a month-over-month change.
-// For expenses, going up is bad; for income and net, up is good.
 function changeTone(metric, entry) {
   if (!entry || entry.difference === 0) return 'flat'
   const upIsGood = metric !== 'expenses'
@@ -15,7 +13,6 @@ function changeTone(metric, entry) {
   return wentUp === upIsGood ? 'good' : 'bad'
 }
 
-// Editorial section header: serif title + trailing hairline rule.
 function SectionHead({ title }) {
   return (
     <div className={styles.sectionHead}>
@@ -67,6 +64,22 @@ function Dashboard() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
+        <svg className={styles.veins} viewBox="0 0 1200 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="hdrGold" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stopColor="#E8C989" />
+              <stop offset="0.5" stopColor="#C9A15A" />
+              <stop offset="1" stopColor="#8C6A2E" />
+            </linearGradient>
+          </defs>
+          <g fill="none" stroke="url(#hdrGold)" strokeLinecap="round">
+            <path d="M-20 34 C 220 8, 430 74, 660 40 S 1010 18, 1220 58" strokeWidth="1.6" opacity="0.85" />
+            <path d="M-20 82 C 260 62, 520 104, 740 76 S 1060 96, 1220 70" strokeWidth="1.1" opacity="0.6" />
+            <path d="M120 -10 C 320 58, 520 26, 820 92 S 1120 60, 1240 30" strokeWidth="0.8" opacity="0.5" />
+            <path d="M-20 58 C 180 44, 360 66, 560 52 S 940 40, 1220 50" strokeWidth="0.7" opacity="0.45" />
+          </g>
+        </svg>
+
         <div className={styles.brandwrap}>
           <span className={styles.wordmark}>FinSight AI</span>
           <span className={styles.brandsub}>
