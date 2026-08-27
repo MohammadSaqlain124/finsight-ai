@@ -6,18 +6,27 @@ import { formatINR, formatMonth } from '../lib/format'
 import Button from '../components/Button'
 import styles from './Dashboard.module.css'
 
+// Financial "good/bad" tone for a month-over-month change.
+// For expenses, going UP is bad; for income and net, going up is good.
+function changeTone(metric, entry) {
+  if (!entry || entry.difference === 0) return 'flat'
+  const upIsGood = metric !== 'expenses'
+  const wentUp = entry.difference > 0
+  return wentUp === upIsGood ? 'good' : 'bad'
+}
+
 function Dashboard() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [summary, setSummary] = useState(null)
   const [subs, setSubs] = useState(null)
   const [monthly, setMonthly] = useState(null)
+  const [comparison, setComparison] = useState(null)
   const [anomalies, setAnomalies] = useState(null)
   const [anomalyMethod, setAnomalyMethod] = useState('zscore')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // Mount: summary gates the page; the rest are best-effort enhancements.
   useEffect(() => {
     apiFetch('/api/analytics/summary')
       .then(setSummary)
@@ -25,9 +34,9 @@ function Dashboard() {
       .finally(() => setLoading(false))
     apiFetch('/api/analytics/subscriptions').then(setSubs).catch(() => {})
     apiFetch('/api/analytics/monthly').then(setMonthly).catch(() => {})
+    apiFetch('/api/analytics/comparison').then(setComparison).catch(() => {})
   }, [])
 
-  // Re-fetch anomalies whenever the method toggle changes.
   useEffect(() => {
     apiFetch(`/api/analytics/anomalies?method=${anomalyMethod}`)
       .then(setAnomalies)
@@ -166,6 +175,52 @@ function Dashboard() {
                       </span>
                     </div>
                   ))}
+                </div>
+              </section>
+            )}
+
+            {comparison && comparison.comparable && (
+              <section className={styles.section}>
+                <h2 className={styles.sectionTitle}>What changed</h2>
+                <p className={styles.muted}>
+                  {formatMonth(comparison.current_month)} vs {formatMonth(comparison.previous_month)}
+                </p>
+
+                {comparison.what_changed.length > 0 ? (
+                  <ul className={styles.insights}>
+                    {comparison.what_changed.map((line, i) => (
+                      <li key={i} className={styles.insight}>{line}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className={styles.muted} style={{ marginTop: '0.75rem' }}>
+                    Spending held steady between these two months.
+                  </p>
+                )}
+
+                <div className={styles.compareGrid}>
+                  {[
+                    { label: 'Income', entry: comparison.income, metric: 'income', showPct: true },
+                    { label: 'Expenses', entry: comparison.expenses, metric: 'expenses', showPct: true },
+                    { label: 'Net', entry: comparison.net_savings, metric: 'net', showPct: false },
+                  ].map(({ label, entry, metric, showPct }) => {
+                    const tone = changeTone(metric, entry)
+                    return (
+                      <div key={label} className={styles.compareCard}>
+                        <p className={styles.cardLabel}>{label}</p>
+                        <p className={`figure ${styles.compareCur} ${entry.current < 0 ? 'figure--negative' : ''}`}>
+                          {formatINR(entry.current)}
+                        </p>
+                        <p className={`${styles.compareDelta} ${styles['tone_' + tone]}`}>
+                          {entry.difference >= 0 ? '+' : ''}{formatINR(entry.difference)}
+                          {showPct && entry.percent_change !== null
+                            ? ` (${entry.percent_change > 0 ? '+' : ''}${entry.percent_change}%)`
+                            : ''}
+                          {' '}vs {formatMonth(comparison.previous_month)}
+                        </p>
+                      </div>
+                    )
+                  })}
                 </div>
               </section>
             )}

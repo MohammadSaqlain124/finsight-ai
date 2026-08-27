@@ -27,11 +27,9 @@
 .section { margin-top: 3rem; }
 .sectionTitle { font-family: var(--font-display); font-size: var(--text-xl); margin-bottom: 1.25rem; }
 
-/* Shared bar */
 .bar { height: 8px; background: var(--paper-raised); border-radius: 999px; overflow: hidden; }
 .barFill { height: 100%; background: var(--pine); border-radius: 999px; }
 
-/* Category breakdown */
 .breakdown { display: flex; flex-direction: column; gap: 1.25rem; }
 .breakdownRow { display: flex; flex-direction: column; gap: 0.375rem; }
 .breakdownHead { display: flex; justify-content: space-between; align-items: baseline; }
@@ -40,7 +38,6 @@
 .breakdownPct { font-size: var(--text-sm); color: var(--ink-soft); }
 .biggest { margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--rule); color: var(--ink-soft); }
 
-/* Monthly trend */
 .monthList { display: flex; flex-direction: column; gap: 1.25rem; }
 .monthRow { display: flex; flex-direction: column; gap: 0.375rem; }
 .monthHead { display: flex; justify-content: space-between; align-items: baseline; }
@@ -48,7 +45,18 @@
 .monthAmt { font-size: var(--text-base); }
 .monthMeta { font-size: var(--text-sm); color: var(--ink-soft); }
 
-/* Recurring payments */
+/* What changed */
+.insights { list-style: none; margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.insight { position: relative; padding-left: 1.25rem; }
+.insight::before { content: "›"; position: absolute; left: 0; color: var(--pine); font-weight: 700; }
+.compareGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.75rem; }
+.compareCard { background: var(--paper-raised); border-radius: 8px; padding: 1.25rem 1.5rem; }
+.compareCur { font-size: var(--text-lg); margin: 0.35rem 0 0.5rem; }
+.compareDelta { font-size: var(--text-sm); }
+.tone_good { color: var(--pine); }
+.tone_bad { color: var(--ledger-red); }
+.tone_flat { color: var(--ink-soft); }
+
 .subsList { display: flex; flex-direction: column; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; margin-top: 1rem; }
 .subRow { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--rule); }
 .subRow:last-child { border-bottom: none; }
@@ -59,7 +67,6 @@
 .subAmt { font-size: var(--text-base); }
 .subAnnual { font-size: var(--text-sm); color: var(--ink-soft); }
 
-/* Anomalies */
 .toggle { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; margin-bottom: 1rem; }
 .toggleBtn { font-family: var(--font-ui); font-size: var(--text-sm); padding: 0.4rem 0.95rem; background: transparent; color: var(--ink-soft); border: none; cursor: pointer; transition: background-color 120ms ease, color 120ms ease; }
 .toggleBtn + .toggleBtn { border-left: 1px solid var(--rule); }
@@ -80,6 +87,7 @@
   .topbar { padding: 1.25rem 1.5rem; flex-wrap: wrap; gap: 1rem; }
   .main { padding: 2rem 1.5rem; }
   .metrics { grid-template-columns: 1fr; }
+  .compareGrid { grid-template-columns: 1fr; }
   .heroFigure { font-size: var(--text-2xl); }
   .subRow { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
   .subAmounts { align-items: flex-start; }
