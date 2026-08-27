@@ -10,6 +10,7 @@ function Dashboard() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [summary, setSummary] = useState(null)
+  const [subs, setSubs] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -18,6 +19,11 @@ function Dashboard() {
       .then(setSummary)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
+
+    // Best-effort: if subscriptions fails, we simply don't show that section.
+    apiFetch('/api/analytics/subscriptions')
+      .then(setSubs)
+      .catch(() => {})
   }, [])
 
   function handleLogout() {
@@ -36,7 +42,10 @@ function Dashboard() {
             {user ? `Welcome back, ${user.full_name}` : 'Welcome back'}
           </p>
         </div>
-        <Button variant="secondary" onClick={handleLogout}>Sign out</Button>
+        <div className={styles.actions}>
+          <Button variant="secondary" onClick={() => navigate('/upload')}>Upload</Button>
+          <Button variant="secondary" onClick={handleLogout}>Sign out</Button>
+        </div>
       </header>
 
       <main className={styles.main}>
@@ -82,6 +91,74 @@ function Dashboard() {
                 <p className={`figure ${styles.cardFigure}`}>{summary.savings_rate}%</p>
               </div>
             </section>
+
+            {summary.spending_by_category.length > 0 && (
+              <section className={styles.section}>
+                <h2 className={styles.sectionTitle}>Where your money went</h2>
+                <div className={styles.breakdown}>
+                  {summary.spending_by_category.map((c) => {
+                    const pct = summary.total_expenses > 0
+                      ? (c.total / summary.total_expenses) * 100
+                      : 0
+                    return (
+                      <div key={c.category} className={styles.breakdownRow}>
+                        <div className={styles.breakdownHead}>
+                          <span className={styles.breakdownCat}>{c.category}</span>
+                          <span className={`figure figure--negative ${styles.breakdownAmt}`}>
+                            {formatINR(-c.total)}
+                          </span>
+                        </div>
+                        <div className={styles.bar}>
+                          <div className={styles.barFill} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className={styles.breakdownPct}>{pct.toFixed(0)}% of spending</span>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {summary.biggest_expense && (
+                  <p className={styles.biggest}>
+                    Biggest single expense: <strong>{summary.biggest_expense.description}</strong>
+                    {' — '}
+                    <span className="figure figure--negative">
+                      {formatINR(-summary.biggest_expense.amount)}
+                    </span>
+                    {summary.biggest_expense.date ? ` on ${summary.biggest_expense.date}` : ''}.
+                  </p>
+                )}
+              </section>
+            )}
+
+            {subs && subs.count > 0 && (
+              <section className={styles.section}>
+                <h2 className={styles.sectionTitle}>Recurring payments</h2>
+                <p className={styles.muted}>
+                  {subs.count} detected · about{' '}
+                  <span className="figure">{formatINR(subs.estimated_monthly_total)}</span> per month
+                </p>
+                <div className={styles.subsList}>
+                  {subs.subscriptions.map((s, i) => (
+                    <div key={i} className={styles.subRow}>
+                      <div className={styles.subInfo}>
+                        <span className={styles.subMerchant}>{s.sample_description}</span>
+                        <span className={styles.subMeta}>
+                          {s.frequency} · {s.occurrences} payments · {Math.round(s.confidence * 100)}% confidence
+                        </span>
+                      </div>
+                      <div className={styles.subAmounts}>
+                        <span className={`figure figure--negative ${styles.subAmt}`}>
+                          {formatINR(-s.average_amount)}
+                        </span>
+                        <span className={styles.subAnnual}>
+                          ≈ {formatINR(s.estimated_annual_cost)}/yr
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </>
         )}
       </main>
