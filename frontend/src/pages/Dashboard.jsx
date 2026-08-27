@@ -6,13 +6,23 @@ import { formatINR, formatMonth } from '../lib/format'
 import Button from '../components/Button'
 import styles from './Dashboard.module.css'
 
-// Financial "good/bad" tone for a month-over-month change.
-// For expenses, going UP is bad; for income and net, going up is good.
+// Financial good/bad tone for a month-over-month change.
+// For expenses, going up is bad; for income and net, up is good.
 function changeTone(metric, entry) {
   if (!entry || entry.difference === 0) return 'flat'
   const upIsGood = metric !== 'expenses'
   const wentUp = entry.difference > 0
   return wentUp === upIsGood ? 'good' : 'bad'
+}
+
+// Editorial section header: serif title + trailing hairline rule.
+function SectionHead({ title }) {
+  return (
+    <div className={styles.sectionHead}>
+      <h2 className={styles.sectionTitle}>{title}</h2>
+      <span className={styles.sectionRule} />
+    </div>
+  )
 }
 
 function Dashboard() {
@@ -56,16 +66,16 @@ function Dashboard() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.topbar}>
-        <div>
-          <p className={styles.wordmark}>FinSight AI</p>
-          <p className={styles.greeting}>
-            {user ? `Welcome back, ${user.full_name}` : 'Welcome back'}
-          </p>
+      <header className={styles.header}>
+        <div className={styles.brandwrap}>
+          <span className={styles.wordmark}>FinSight AI</span>
+          <span className={styles.brandsub}>
+            {user ? `Welcome back, ${user.full_name}` : 'Personal finance'}
+          </span>
         </div>
         <div className={styles.actions}>
-          <Button variant="secondary" onClick={() => navigate('/upload')}>Upload</Button>
-          <Button variant="secondary" onClick={handleLogout}>Sign out</Button>
+          <button className={styles.hbtn} onClick={() => navigate('/upload')}>Upload</button>
+          <button className={styles.hbtn} onClick={handleLogout}>Sign out</button>
         </div>
       </header>
 
@@ -89,13 +99,21 @@ function Dashboard() {
         {!loading && !error && hasData && (
           <>
             <section className={styles.hero}>
-              <p className={styles.heroLabel}>Net savings</p>
+              <p className={styles.heroEyebrow}>Net savings</p>
               <p className={`figure ${styles.heroFigure} ${summary.net_savings < 0 ? 'figure--negative' : ''}`}>
                 {summary.net_savings >= 0 ? '+' : ''}{formatINR(summary.net_savings)}
               </p>
-              <p className={styles.muted}>
+              <p className={styles.heroSub}>
                 You kept {summary.savings_rate}% of your income across {summary.transaction_count} transactions.
               </p>
+              <span className={styles.privacy}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                Account numbers and identifiers are removed before your statement is stored.
+              </span>
             </section>
 
             <section className={styles.metrics}>
@@ -114,8 +132,8 @@ function Dashboard() {
             </section>
 
             {summary.spending_by_category.length > 0 && (
-              <section className={styles.section}>
-                <h2 className={styles.sectionTitle}>Where your money went</h2>
+              <section className={styles.block}>
+                <SectionHead title="Where your money went" />
                 <div className={styles.breakdown}>
                   {summary.spending_by_category.map((c) => {
                     const pct = summary.total_expenses > 0
@@ -152,8 +170,8 @@ function Dashboard() {
             )}
 
             {monthly && monthly.months.length > 0 && (
-              <section className={styles.section}>
-                <h2 className={styles.sectionTitle}>Monthly trend</h2>
+              <section className={styles.block}>
+                <SectionHead title="Monthly trend" />
                 <div className={styles.monthList}>
                   {monthly.months.map((m) => (
                     <div key={m.month} className={styles.monthRow}>
@@ -180,14 +198,14 @@ function Dashboard() {
             )}
 
             {comparison && comparison.comparable && (
-              <section className={styles.section}>
-                <h2 className={styles.sectionTitle}>What changed</h2>
+              <section className={styles.block}>
+                <SectionHead title="What changed" />
                 <p className={styles.muted}>
                   {formatMonth(comparison.current_month)} vs {formatMonth(comparison.previous_month)}
                 </p>
 
                 {comparison.what_changed.length > 0 ? (
-                  <ul className={styles.insights}>
+                  <ul className={styles.insights} style={{ marginTop: '1rem' }}>
                     {comparison.what_changed.map((line, i) => (
                       <li key={i} className={styles.insight}>{line}</li>
                     ))}
@@ -226,13 +244,13 @@ function Dashboard() {
             )}
 
             {subs && subs.count > 0 && (
-              <section className={styles.section}>
-                <h2 className={styles.sectionTitle}>Recurring payments</h2>
+              <section className={styles.block}>
+                <SectionHead title="Recurring payments" />
                 <p className={styles.muted}>
                   {subs.count} detected · about{' '}
                   <span className="figure">{formatINR(subs.estimated_monthly_total)}</span> per month
                 </p>
-                <div className={styles.subsList}>
+                <div className={styles.subsList} style={{ marginTop: '1rem' }}>
                   {subs.subscriptions.map((s, i) => (
                     <div key={i} className={styles.subRow}>
                       <div className={styles.subInfo}>
@@ -255,8 +273,8 @@ function Dashboard() {
               </section>
             )}
 
-            <section className={styles.section}>
-              <h2 className={styles.sectionTitle}>Unusual transactions</h2>
+            <section className={styles.block}>
+              <SectionHead title="Unusual transactions" />
               <div className={styles.toggle}>
                 <button
                   className={`${styles.toggleBtn} ${anomalyMethod === 'zscore' ? styles.toggleBtnActive : ''}`}
@@ -287,7 +305,7 @@ function Dashboard() {
                     <span className="figure">{formatINR(anomalies.upper_threshold)}</span>, versus an average
                     expense of <span className="figure">{formatINR(anomalies.average_expense)}</span>.
                   </p>
-                  <div className={styles.anomList}>
+                  <div className={styles.anomList} style={{ marginTop: '1rem' }}>
                     {anomalies.anomalies.map((a) => (
                       <div key={a.id} className={styles.anomRow}>
                         <div className={styles.anomHead}>
