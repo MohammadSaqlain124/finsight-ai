@@ -27,16 +27,26 @@
 .section { margin-top: 3rem; }
 .sectionTitle { font-family: var(--font-display); font-size: var(--text-xl); margin-bottom: 1.25rem; }
 
+/* Shared bar */
+.bar { height: 8px; background: var(--paper-raised); border-radius: 999px; overflow: hidden; }
+.barFill { height: 100%; background: var(--pine); border-radius: 999px; }
+
 /* Category breakdown */
 .breakdown { display: flex; flex-direction: column; gap: 1.25rem; }
 .breakdownRow { display: flex; flex-direction: column; gap: 0.375rem; }
 .breakdownHead { display: flex; justify-content: space-between; align-items: baseline; }
 .breakdownCat { font-weight: 500; }
 .breakdownAmt { font-size: var(--text-base); }
-.bar { height: 8px; background: var(--paper-raised); border-radius: 999px; overflow: hidden; }
-.barFill { height: 100%; background: var(--pine); border-radius: 999px; }
 .breakdownPct { font-size: var(--text-sm); color: var(--ink-soft); }
 .biggest { margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--rule); color: var(--ink-soft); }
+
+/* Monthly trend */
+.monthList { display: flex; flex-direction: column; gap: 1.25rem; }
+.monthRow { display: flex; flex-direction: column; gap: 0.375rem; }
+.monthHead { display: flex; justify-content: space-between; align-items: baseline; }
+.monthLabel { font-weight: 500; }
+.monthAmt { font-size: var(--text-base); }
+.monthMeta { font-size: var(--text-sm); color: var(--ink-soft); }
 
 /* Recurring payments */
 .subsList { display: flex; flex-direction: column; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; margin-top: 1rem; }
@@ -48,6 +58,20 @@
 .subAmounts { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; }
 .subAmt { font-size: var(--text-base); }
 .subAnnual { font-size: var(--text-sm); color: var(--ink-soft); }
+
+/* Anomalies */
+.toggle { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; margin-bottom: 1rem; }
+.toggleBtn { font-family: var(--font-ui); font-size: var(--text-sm); padding: 0.4rem 0.95rem; background: transparent; color: var(--ink-soft); border: none; cursor: pointer; transition: background-color 120ms ease, color 120ms ease; }
+.toggleBtn + .toggleBtn { border-left: 1px solid var(--rule); }
+.toggleBtn:hover { color: var(--ink); }
+.toggleBtnActive, .toggleBtnActive:hover { background: var(--pine); color: var(--paper); }
+.anomList { display: flex; flex-direction: column; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; margin-top: 1rem; }
+.anomRow { padding: 1rem 1.25rem; border-bottom: 1px solid var(--rule); }
+.anomRow:last-child { border-bottom: none; }
+.anomHead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.35rem; }
+.anomDesc { font-weight: 600; }
+.anomReason { color: var(--ink-soft); font-size: var(--text-sm); }
+.anomMeta { display: block; margin-top: 0.35rem; font-size: var(--text-sm); color: var(--ink-soft); }
 
 .empty { max-width: 480px; margin: 4rem auto; text-align: center; }
 .emptyTitle { font-family: var(--font-display); font-size: var(--text-2xl); margin-bottom: 0.75rem; }

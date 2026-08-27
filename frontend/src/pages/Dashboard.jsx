@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { apiFetch } from '../lib/api'
-import { formatINR } from '../lib/format'
+import { formatINR, formatMonth } from '../lib/format'
 import Button from '../components/Button'
 import styles from './Dashboard.module.css'
 
@@ -11,20 +11,28 @@ function Dashboard() {
   const navigate = useNavigate()
   const [summary, setSummary] = useState(null)
   const [subs, setSubs] = useState(null)
+  const [monthly, setMonthly] = useState(null)
+  const [anomalies, setAnomalies] = useState(null)
+  const [anomalyMethod, setAnomalyMethod] = useState('zscore')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // Mount: summary gates the page; the rest are best-effort enhancements.
   useEffect(() => {
     apiFetch('/api/analytics/summary')
       .then(setSummary)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-
-    // Best-effort: if subscriptions fails, we simply don't show that section.
-    apiFetch('/api/analytics/subscriptions')
-      .then(setSubs)
-      .catch(() => {})
+    apiFetch('/api/analytics/subscriptions').then(setSubs).catch(() => {})
+    apiFetch('/api/analytics/monthly').then(setMonthly).catch(() => {})
   }, [])
+
+  // Re-fetch anomalies whenever the method toggle changes.
+  useEffect(() => {
+    apiFetch(`/api/analytics/anomalies?method=${anomalyMethod}`)
+      .then(setAnomalies)
+      .catch(() => {})
+  }, [anomalyMethod])
 
   function handleLogout() {
     logout()
@@ -32,6 +40,10 @@ function Dashboard() {
   }
 
   const hasData = summary && summary.transaction_count > 0
+  const maxMonthExpense =
+    monthly && monthly.months.length > 0
+      ? Math.max(...monthly.months.map((m) => m.expenses), 1)
+      : 1
 
   return (
     <div className={styles.page}>
@@ -130,6 +142,34 @@ function Dashboard() {
               </section>
             )}
 
+            {monthly && monthly.months.length > 0 && (
+              <section className={styles.section}>
+                <h2 className={styles.sectionTitle}>Monthly trend</h2>
+                <div className={styles.monthList}>
+                  {monthly.months.map((m) => (
+                    <div key={m.month} className={styles.monthRow}>
+                      <div className={styles.monthHead}>
+                        <span className={styles.monthLabel}>{formatMonth(m.month)}</span>
+                        <span className={`figure figure--negative ${styles.monthAmt}`}>
+                          {formatINR(-m.expenses)}
+                        </span>
+                      </div>
+                      <div className={styles.bar}>
+                        <div className={styles.barFill} style={{ width: `${(m.expenses / maxMonthExpense) * 100}%` }} />
+                      </div>
+                      <span className={styles.monthMeta}>
+                        income <span className="figure">{formatINR(m.income)}</span>
+                        {'  ·  net '}
+                        <span className={`figure ${m.net_savings < 0 ? 'figure--negative' : ''}`}>
+                          {m.net_savings >= 0 ? '+' : ''}{formatINR(m.net_savings)}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {subs && subs.count > 0 && (
               <section className={styles.section}>
                 <h2 className={styles.sectionTitle}>Recurring payments</h2>
@@ -159,6 +199,54 @@ function Dashboard() {
                 </div>
               </section>
             )}
+
+            <section className={styles.section}>
+              <h2 className={styles.sectionTitle}>Unusual transactions</h2>
+              <div className={styles.toggle}>
+                <button
+                  className={`${styles.toggleBtn} ${anomalyMethod === 'zscore' ? styles.toggleBtnActive : ''}`}
+                  onClick={() => setAnomalyMethod('zscore')}
+                >
+                  Z-score
+                </button>
+                <button
+                  className={`${styles.toggleBtn} ${anomalyMethod === 'iqr' ? styles.toggleBtnActive : ''}`}
+                  onClick={() => setAnomalyMethod('iqr')}
+                >
+                  IQR
+                </button>
+              </div>
+
+              {anomalies && !anomalies.enough_data && (
+                <p className={styles.muted}>{anomalies.reason}</p>
+              )}
+
+              {anomalies && anomalies.enough_data && anomalies.anomaly_count === 0 && (
+                <p className={styles.muted}>No unusual transactions flagged with this method.</p>
+              )}
+
+              {anomalies && anomalies.enough_data && anomalies.anomaly_count > 0 && (
+                <>
+                  <p className={styles.muted}>
+                    {anomalies.anomaly_count} flagged — anything above{' '}
+                    <span className="figure">{formatINR(anomalies.upper_threshold)}</span>, versus an average
+                    expense of <span className="figure">{formatINR(anomalies.average_expense)}</span>.
+                  </p>
+                  <div className={styles.anomList}>
+                    {anomalies.anomalies.map((a) => (
+                      <div key={a.id} className={styles.anomRow}>
+                        <div className={styles.anomHead}>
+                          <span className={styles.anomDesc}>{a.description}</span>
+                          <span className="figure figure--negative">{formatINR(-a.amount)}</span>
+                        </div>
+                        <p className={styles.anomReason}>{a.reason}</p>
+                        <span className={styles.anomMeta}>{a.category} · {a.date}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </section>
           </>
         )}
       </main>

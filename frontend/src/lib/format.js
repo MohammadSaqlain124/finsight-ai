@@ -7,3 +7,9 @@ export function formatINR(amount) {
     maximumFractionDigits: 2,
   }).format(n)
 }
+
+export function formatMonth(ym) {
+  const [y, m] = String(ym).split('-').map(Number)
+  if (!y || !m) return ym
+  return new Date(y, m - 1, 1).toLocaleString('en-IN', { month: 'short', year: 'numeric' })
+}
