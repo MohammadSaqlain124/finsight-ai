@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import { formatINR } from '../lib/format'
 import Button from '../components/Button'
@@ -10,6 +10,8 @@ function Upload() {
   const [preview, setPreview] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const navigate = useNavigate()
 
   async function handleUpload(e) {
     e.preventDefault()
@@ -27,6 +29,18 @@ function Upload() {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleConfirm() {
+    setError('')
+    setConfirming(true)
+    try {
+      await apiFetch(`/api/statements/${preview.statementId}/confirm`, { method: 'POST' })
+      navigate('/dashboard')
+    } catch (err) {
+      setError(err.message)
+      setConfirming(false)
     }
   }
 
@@ -89,9 +103,12 @@ function Upload() {
               </table>
             </div>
 
-            <p className={styles.muted} style={{ marginTop: '1rem' }}>
-              Looks right? The confirm step (which saves these) comes next.
-            </p>
+            <div className={styles.confirmRow}>
+              <Button variant="primary" onClick={handleConfirm} disabled={confirming}>
+                {confirming ? 'Importing…' : `Confirm & import ${preview.transaction_count} transactions`}
+              </Button>
+              <span className={styles.muted}>You can review everything on the dashboard after.</span>
+            </div>
           </section>
         )}
       </main>

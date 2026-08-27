@@ -21,3 +21,4 @@
 .table tr:last-child td { border-bottom: none; }
 .right { text-align: right; }
 .mono { font-family: var(--font-mono); }
+.confirmRow { display: flex; align-items: center; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
