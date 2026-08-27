@@ -14,6 +14,7 @@ from datetime import date as date_type
 from app.models.transaction import Transaction
 from app.schemas.transaction import TransactionRead
 from app.services.categorizer import categorize
+from app.services.redact import redact_text
 
 router = APIRouter(prefix="/api/statements", tags=["statements"])
 
@@ -173,7 +174,8 @@ def confirm_import(
         if existing is not None:
             skipped_duplicates += 1
             continue
-
+        
+        row["description"] = redact_text(row["description"])
         guess = categorize(row["description"], row["transaction_type"])
         txn = Transaction(
             user_id=current_user.id,
