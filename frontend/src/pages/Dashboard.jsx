@@ -6,6 +6,10 @@ import { formatINR, formatMonth } from '../lib/format'
 import Button from '../components/Button'
 import styles from './Dashboard.module.css'
 
+// Deepest → lightest green. Bars are coloured by rank (biggest = deepest).
+const BAR_SHADES = ['#2E4A3E', '#3E5A4C', '#557061', '#7A8E82', '#9AA99F']
+const barShade = (rank) => BAR_SHADES[Math.min(rank, BAR_SHADES.length - 1)]
+
 function changeTone(metric, entry) {
   if (!entry || entry.difference === 0) return 'flat'
   const upIsGood = metric !== 'expenses'
@@ -16,6 +20,7 @@ function changeTone(metric, entry) {
 function SectionHead({ title }) {
   return (
     <div className={styles.sectionHead}>
+      <span className={styles.sectionTick} />
       <h2 className={styles.sectionTitle}>{title}</h2>
       <span className={styles.sectionRule} />
     </div>
@@ -61,6 +66,13 @@ function Dashboard() {
       ? Math.max(...monthly.months.map((m) => m.expenses), 1)
       : 1
 
+  // Rank each month by expense so the tallest bar gets the deepest shade.
+  const monthRank = {}
+  if (monthly && monthly.months.length > 0) {
+    const ranked = [...monthly.months].sort((a, b) => b.expenses - a.expenses)
+    ranked.forEach((m, i) => { monthRank[m.month] = i })
+  }
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -73,10 +85,9 @@ function Dashboard() {
             </linearGradient>
           </defs>
           <g fill="none" stroke="url(#hdrGold)" strokeLinecap="round">
-            <path d="M-20 34 C 220 8, 430 74, 660 40 S 1010 18, 1220 58" strokeWidth="1.6" opacity="0.85" />
-            <path d="M-20 82 C 260 62, 520 104, 740 76 S 1060 96, 1220 70" strokeWidth="1.1" opacity="0.6" />
-            <path d="M120 -10 C 320 58, 520 26, 820 92 S 1120 60, 1240 30" strokeWidth="0.8" opacity="0.5" />
-            <path d="M-20 58 C 180 44, 360 66, 560 52 S 940 40, 1220 50" strokeWidth="0.7" opacity="0.45" />
+            <path d="M-20 40 C 260 14, 470 72, 700 44 S 1040 26, 1220 60" strokeWidth="1.2" opacity="0.85" />
+            <path d="M-20 84 C 300 66, 560 100, 780 78 S 1080 92, 1220 74" strokeWidth="0.9" opacity="0.6" />
+            <path d="M160 -10 C 360 56, 560 30, 860 90 S 1140 62, 1240 34" strokeWidth="0.6" opacity="0.4" />
           </g>
         </svg>
 
@@ -148,7 +159,7 @@ function Dashboard() {
               <section className={styles.block}>
                 <SectionHead title="Where your money went" />
                 <div className={styles.breakdown}>
-                  {summary.spending_by_category.map((c) => {
+                  {summary.spending_by_category.map((c, idx) => {
                     const pct = summary.total_expenses > 0
                       ? (c.total / summary.total_expenses) * 100
                       : 0
@@ -161,7 +172,7 @@ function Dashboard() {
                           </span>
                         </div>
                         <div className={styles.bar}>
-                          <div className={styles.barFill} style={{ width: `${pct}%` }} />
+                          <div className={styles.barFill} style={{ width: `${pct}%`, background: barShade(idx) }} />
                         </div>
                         <span className={styles.breakdownPct}>{pct.toFixed(0)}% of spending</span>
                       </div>
@@ -195,7 +206,10 @@ function Dashboard() {
                         </span>
                       </div>
                       <div className={styles.bar}>
-                        <div className={styles.barFill} style={{ width: `${(m.expenses / maxMonthExpense) * 100}%` }} />
+                        <div
+                          className={styles.barFill}
+                          style={{ width: `${(m.expenses / maxMonthExpense) * 100}%`, background: barShade(monthRank[m.month] ?? 0) }}
+                        />
                       </div>
                       <span className={styles.monthMeta}>
                         income <span className="figure">{formatINR(m.income)}</span>
@@ -218,7 +232,7 @@ function Dashboard() {
                 </p>
 
                 {comparison.what_changed.length > 0 ? (
-                  <ul className={styles.insights} style={{ marginTop: '1rem' }}>
+                  <ul className={styles.insights}>
                     {comparison.what_changed.map((line, i) => (
                       <li key={i} className={styles.insight}>{line}</li>
                     ))}
