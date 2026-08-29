@@ -3,10 +3,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import { formatINR } from '../lib/format'
 import Button from '../components/Button'
+import TextField from '../components/TextField'
 import styles from './Upload.module.css'
 
 function Upload() {
   const [file, setFile] = useState(null)
+  const [password, setPassword] = useState('')
   const [preview, setPreview] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -21,7 +23,8 @@ function Upload() {
     setLoading(true)
     try {
       const formData = new FormData()
-      formData.append('file', file)   // field name MUST be "file"
+      formData.append('file', file)
+      if (password) formData.append('password', password)   // only sent when provided
       const statement = await apiFetch('/api/statements/upload', { method: 'POST', formData })
       const previewData = await apiFetch(`/api/statements/${statement.id}/preview`)
       setPreview({ ...previewData, statementId: statement.id })
@@ -54,16 +57,25 @@ function Upload() {
       <main className={styles.main}>
         <h1 className={styles.title}>Upload a statement</h1>
         <p className={styles.muted}>
-          Choose a CSV bank statement. FinSight parses and cleans it, then shows a preview —
-          nothing is saved until you confirm.
+          Choose a CSV or PDF bank statement. FinSight parses and cleans it, then shows a
+          preview — nothing is saved until you confirm. For a password-protected PDF, enter
+          its password below.
         </p>
 
         <form onSubmit={handleUpload} className={styles.uploader}>
           <input
             type="file"
-            accept=".csv"
+            accept=".csv,.pdf"
             onChange={(e) => setFile(e.target.files[0] || null)}
             className={styles.fileInput}
+          />
+          <TextField
+            label="PDF password"
+            id="pdfPassword"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Only for password-protected PDFs"
           />
           <Button type="submit" variant="primary" disabled={!file || loading}>
             {loading ? 'Uploading…' : 'Upload & preview'}

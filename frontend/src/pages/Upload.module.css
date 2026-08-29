@@ -9,7 +9,7 @@
 .muted { color: var(--ink-soft); }
 .error { color: var(--ledger-red); margin-top: 1rem; }
 
-.uploader { display: flex; gap: 1rem; align-items: center; margin-top: 1.5rem; flex-wrap: wrap; }
+.uploader { display: flex; flex-direction: column; gap: 1.1rem; align-items: stretch; margin-top: 1.5rem; max-width: 420px; }
 .fileInput { font-family: var(--font-ui); color: var(--ink); }
 
 .previewBlock { margin-top: 2.5rem; }

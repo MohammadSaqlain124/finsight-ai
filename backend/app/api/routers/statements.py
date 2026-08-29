@@ -1,8 +1,9 @@
 import os
 import uuid
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
 from app.services.csv_parser import parse_csv
+from app.services.pdf_parser import parse_pdf, decrypt_pdf_in_place, PDFPasswordError
 from app.db.session import get_db
 from app.core.config import settings
 from app.models.user import User
@@ -21,9 +22,34 @@ router = APIRouter(prefix="/api/statements", tags=["statements"])
 ALLOWED_EXTENSIONS = {".csv", ".xlsx", ".xls", ".pdf"}
 
 
+def _parse_statement(statement) -> list[dict]:
+    """Route a stored statement to the right parser based on its file type,
+    returning raw rows in the shared internal shape."""
+    file_path = os.path.join(settings.UPLOAD_DIR, statement.stored_filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Stored file is missing.")
+
+    try:
+        if statement.file_type == "csv":
+            return parse_csv(file_path)
+        if statement.file_type == "pdf":
+            return parse_pdf(file_path)
+        raise HTTPException(
+            status_code=400,
+            detail=f"{statement.file_type.upper()} import is not supported yet.",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except PDFPasswordError as e:
+        # PDFs are decrypted at upload, so this should be rare — guards the case
+        # of a stored PDF somehow still encrypted.
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/upload", response_model=StatementRead, status_code=201)
 async def upload_statement(
     file: UploadFile = File(...),
+    password: str | None = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -53,6 +79,16 @@ async def upload_statement(
     with open(stored_path, "wb") as f:
         f.write(contents)
 
+    # 3b. If it's a PDF, decrypt it now (password used once, then discarded).
+    #     On failure, remove the file and bail BEFORE creating a DB row, so no
+    #     orphaned file or statement record is left behind.
+    if ext == ".pdf":
+        try:
+            decrypt_pdf_in_place(stored_path, password)
+        except PDFPasswordError as e:
+            os.remove(stored_path)
+            raise HTTPException(status_code=400, detail=str(e))
+
     # 4. Record it in the database, bound to THIS user
     statement = Statement(
         user_id=current_user.id,
@@ -78,14 +114,14 @@ def list_my_statements(
         .order_by(Statement.uploaded_at.desc())
         .all()
     )
-    
+
+
 @router.get("/{statement_id}/preview")
 def preview_statement(
     statement_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Fetch the statement, scoped to this user (isolation).
     statement = (
         db.query(Statement)
         .filter(Statement.id == statement_id, Statement.user_id == current_user.id)
@@ -94,21 +130,7 @@ def preview_statement(
     if statement is None:
         raise HTTPException(status_code=404, detail="Statement not found")
 
-    if statement.file_type != "csv":
-        raise HTTPException(
-            status_code=400,
-            detail="Preview currently supports CSV only. XLSX and PDF are coming.",
-        )
-
-    file_path = os.path.join(settings.UPLOAD_DIR, statement.stored_filename)
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Stored file is missing.")
-
-    try:
-        raw_rows = parse_csv(file_path)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-
+    raw_rows = _parse_statement(statement)
     transactions = clean_transactions(raw_rows)
 
     return {
@@ -117,7 +139,8 @@ def preview_statement(
         "transaction_count": len(transactions),
         "preview": transactions[:20],
     }
-    
+
+
 @router.post("/{statement_id}/confirm", response_model=list[TransactionRead], status_code=201)
 def confirm_import(
     statement_id: int,
@@ -136,31 +159,17 @@ def confirm_import(
     if statement.status == "processed":
         raise HTTPException(status_code=400, detail="This statement has already been imported.")
 
-    if statement.file_type != "csv":
-        raise HTTPException(status_code=400, detail="Only CSV import is supported so far.")
-
-    file_path = os.path.join(settings.UPLOAD_DIR, statement.stored_filename)
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Stored file is missing.")
-
-    try:
-        raw_rows = parse_csv(file_path)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-
+    raw_rows = _parse_statement(statement)
     cleaned = clean_transactions(raw_rows)
     if not cleaned:
         raise HTTPException(status_code=422, detail="No valid transactions found to import.")
 
-    # Build Transaction rows and save them all in one commit.
     new_transactions = []
     skipped_duplicates = 0
     for row in cleaned:
         txn_date = date_type.fromisoformat(row["date"])
 
-        # Duplicate guard: skip if an identical transaction already exists
-        # for this user (same date + description + amount). Prevents the same
-        # statement being imported twice from polluting analytics. (Spec §26)
+        # Duplicate guard: skip identical transaction (same user + date + description + amount).
         existing = (
             db.query(Transaction)
             .filter(
@@ -174,8 +183,11 @@ def confirm_import(
         if existing is not None:
             skipped_duplicates += 1
             continue
-        
+
+        # Privacy: strip account numbers, CIF, IFSC, PAN from the narration
+        # BEFORE it is categorized or written to the database.
         row["description"] = redact_text(row["description"])
+
         guess = categorize(row["description"], row["transaction_type"])
         txn = Transaction(
             user_id=current_user.id,
@@ -218,7 +230,8 @@ def list_statement_transactions(
         .order_by(Transaction.date)
         .all()
     )
-    
+
+
 @router.post("/{statement_id}/categorize")
 def categorize_statement(
     statement_id: int,
@@ -244,7 +257,7 @@ def categorize_statement(
     results = []
     for txn in transactions:
         guess = categorize(txn.description, txn.transaction_type)
-        txn.category = guess["category"]   # persist the category on the stored row
+        txn.category = guess["category"]
         results.append({
             "id": txn.id,
             "description": txn.description,
@@ -253,7 +266,7 @@ def categorize_statement(
             "matched_keyword": guess["matched_keyword"],
         })
 
-    db.commit()   # save all the updated categories at once
+    db.commit()
 
     return {
         "statement_id": statement.id,

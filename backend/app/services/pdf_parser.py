@@ -3,8 +3,6 @@ import re
 import pdfplumber
 import pikepdf
 
-# Reuse the same column vocabulary as the CSV parser so PDF tables normalize
-# to the exact same internal keys — cleaner / redact / categorize stay unchanged.
 COLUMN_ALIASES = {
     "date": ["date", "txn date", "transaction date", "value date", "posting date"],
     "description": ["description", "narration", "particulars", "details", "remarks", "transaction details"],
@@ -20,8 +18,6 @@ class PDFPasswordError(Exception):
 
 
 def _map_header(header_cells):
-    """Map a table's header cells to our internal column names.
-    Returns {column_index: internal_name}."""
     mapping = {}
     for i, cell in enumerate(header_cells):
         if not cell:
@@ -35,9 +31,8 @@ def _map_header(header_cells):
 
 
 def _decrypt_if_needed(file_path, password):
-    """Return usable PDF bytes. If the file is encrypted, decrypt it with the
-    password; raise PDFPasswordError if a password is needed but absent/wrong.
-    The password is used only in memory and never stored."""
+    """Return usable PDF bytes. Raises PDFPasswordError if a password is needed
+    but absent/wrong. Password is used only in memory, never stored."""
     with open(file_path, "rb") as f:
         raw = f.read()
     try:
@@ -56,6 +51,15 @@ def _decrypt_if_needed(file_path, password):
         raise PDFPasswordError("Incorrect password for this PDF.")
 
 
+def decrypt_pdf_in_place(file_path, password=None):
+    """If the PDF is encrypted, decrypt it with the password and overwrite the
+    file with the decrypted bytes. No-op if it isn't encrypted. Raises
+    PDFPasswordError if a password is needed but missing/wrong."""
+    data = _decrypt_if_needed(file_path, password)
+    with open(file_path, "wb") as f:
+        f.write(data)
+
+
 _LINE_RE = re.compile(
     r"^(?P<date>\d{4}-\d{2}-\d{2}|\d{1,2}[-/][A-Za-z0-9]{2,9}[-/]\d{2,4})\s+"
     r"(?P<desc>.+?)\s+"
@@ -64,8 +68,6 @@ _LINE_RE = re.compile(
 
 
 def _parse_text_lines(pdf):
-    """Fallback for statements without real table structure: match lines that
-    start with a date and end with an amount."""
     rows = []
     for page in pdf.pages:
         for line in (page.extract_text() or "").splitlines():
@@ -91,7 +93,7 @@ def parse_pdf(file_path, password=None):
                     continue
                 mapping = _map_header(table[0])
                 if "date" not in mapping.values():
-                    continue                      # not a transaction table
+                    continue
                 for cells in table[1:]:
                     row = {}
                     for i, internal in mapping.items():
