@@ -1,204 +1,151 @@
-# FinSight AI — Project State
+# FinSight AI, Project State
 
-FinSight AI is an AI-assisted personal finance analyzer built as a final-year B.Tech Computer Science capstone project. Users upload their bank statements; the application extracts, cleans, categorizes, and analyzes the transactions to surface practical financial insight — spending summaries, month-over-month comparisons, recurring-subscription detection, and anomaly detection — through a clean web dashboard.
+FinSight AI is an AI assisted personal finance analyzer, built as my final year B.Tech Computer Science project. You give it a bank statement, a CSV or a PDF including password protected ones, and it pulls out the transactions, cleans them, strips out sensitive details, categorizes them, and analyzes them. The results show up on a dashboard.
 
-The project is built to be understood, not merely to run. Each significant technical decision is deliberate and documented, so the architecture can be explained and defended in depth.
+I've tried to build it so every decision has a reason I can actually explain, rather than something that just happens to work.
 
-- **Repository:** github.com/MohammadSaqlain124/finsight-ai
-- **Author:** Mohd Saqlain Hussain — B.Tech CSE, Invertis University
-- **Status:** Backend analysis engine complete. Frontend authentication and application shell complete; data dashboard and responsive layout in progress.
+Repository: github.com/MohammadSaqlain124/finsight-ai
+Author: Mohd Saqlain Hussain, B.Tech CSE, Invertis University
 
----
+Status: the backend analysis engine is finished, and so is the frontend. Authentication, statement upload for both CSV and PDF, and the full analytics dashboard are all built, styled, and working end to end.
 
 ## Tech stack
 
-**Backend**
-- FastAPI (Python) — REST API
-- SQLAlchemy 2.0 ORM with SQLite for development (schema designed to migrate to PostgreSQL)
-- Pydantic v2 and pydantic-settings for validation and configuration
-- JWT authentication (PyJWT) with bcrypt password hashing
-- pandas for statement parsing and cleaning
+The backend runs on FastAPI. Data lives in SQLite through the SQLAlchemy ORM, and the schema is written so a move to PostgreSQL later wouldn't mean rewriting queries. Validation and config use Pydantic and pydantic-settings. Auth is JWT with PyJWT and bcrypt. pandas does the CSV parsing and cleaning, and PDF work is handled by pdfplumber for extraction and pikepdf for decrypting locked files.
 
-**Frontend**
-- React, built with Vite
-- react-router-dom for client-side routing
-- Plain CSS using CSS custom properties (design tokens) and CSS Modules for component-scoped styling — deliberately no UI framework, to keep full control over a bespoke visual identity
-- IBM Plex type family (Serif for display, Sans for UI, Mono for financial figures)
+The frontend is React built with Vite, using react-router-dom for routing. Styling is plain CSS with design tokens and CSS Modules instead of a UI framework, which was a deliberate choice to keep control over the visual identity. Type is the IBM Plex family, serif for headings, sans for the interface, and mono for the numbers.
 
-**Authentication model:** JWT bearer tokens. Login uses the OAuth2 password flow; the signed token is stored in the browser and attached to every authenticated request. Protected API routes resolve the current user through a FastAPI dependency; protected frontend routes are guarded by a route wrapper that redirects unauthenticated users to the sign-in page.
+On auth, the app uses JWT bearer tokens. Login goes through the OAuth2 password flow and is rate limited against brute force. The signed token sits in the browser and rides along on every authenticated request. On the backend, protected routes resolve the current user through a dependency, and on the frontend a route wrapper sends anyone without a valid token back to the login page.
 
----
+## How it fits together
 
-## Architecture at a glance
+The React app talks to the FastAPI backend over HTTP, and FastAPI stores everything in SQLite. Once you log in, the browser holds a signed JWT and sends it as a bearer token with each request. The backend checks the token and scopes every query to that user, so nobody can read anyone else's data. CORS is set to allow only the frontend origin during development.
 
-A React single-page application (served by Vite in development) communicates over HTTP with the FastAPI backend, which persists data in SQLite. After login, the browser holds a signed JWT and sends it as a bearer token on every authenticated request; the backend validates the token and scopes all data to the authenticated user. Cross-origin requests between the development frontend and backend are permitted by CORS middleware.
+## What's built
 
-```
-React SPA (Vite, :5173)  ──HTTP + JWT──▶  FastAPI (:8000)  ──▶  SQLite
-```
+Auth and users. Registration hashes the password with bcrypt, login hands back a JWT, and there is a protected endpoint for the current user. Repeated failed logins from one client get throttled with a sliding window that returns a 429, and a successful login clears the count. The frontend has proper sign in and register pages, keeps the token, attaches it automatically, guards the dashboard, restores the session on refresh, and handles sign out.
 
----
+The statement pipeline handles CSV and PDF. Files are stored under random UUID names with an extension check and a size limit. CSV parsing normalizes different bank column names to a common set. PDF parsing uses pdfplumber, tries tables first and falls back to reading lines of text, and produces the exact same row shape the CSV parser does, so nothing downstream cares which format it came from. Locked PDFs are decrypted at upload with pikepdf, and the password is only ever used in memory and never stored. After parsing, the cleaning step deals with different date formats, currency symbols, thousands separators, and blank cells. Nothing is written until you confirm a preview, and a duplicate guard stops the same statement being imported twice.
 
-## Features implemented
+Privacy. Before a transaction is stored, its description runs through a redaction step that removes account numbers, CIF, IFSC and PAN. The regexes are ordered so the specific patterns run before the general catch-all. This happens for both CSV and PDF imports, and the dashboard tells the user it is being done.
 
-**Authentication and users**
-- Registration with bcrypt-hashed passwords, login that issues a JWT, and a protected "current user" endpoint.
-- Frontend: styled sign-in and registration pages, token persistence, automatically attached bearer authentication, a protected dashboard, session restoration on page refresh, and sign-out.
+Categorization is rule based, with a confidence score and the keyword that matched, applied automatically when transactions are imported.
 
-**Statement pipeline**
-- Secure file upload with UUID-based storage and validation.
-- CSV parsing with column-alias normalization, so statements from different banks with different header names are understood.
-- Data cleaning covering multi-format dates, currency symbols, thousands separators, and empty cells.
-- A preview-then-confirm import flow, with a content-based duplicate guard that prevents the same statement being imported twice.
+Analytics covers a fair amount. A summary with income, expenses, savings rate, category breakdown and biggest expense. A per month breakdown and a month over month comparison with short plain notes on what changed. Recurring payment detection based on how regular the intervals are and how steady the amounts are. And anomaly detection with two methods the user can switch between, z-score and IQR, each giving a readable reason.
 
-**Categorization**
-- Rule-based transaction categorization with confidence scores and keyword-level explainability, applied automatically on import.
-
-**Analytics**
-- Financial summary: income, expenses, savings rate, category breakdown, and largest expense.
-- Per-month breakdown and month-over-month comparison, including plain-English "what changed" insights.
-
-**Recurring payments**
-- Subscription detection using interval-rhythm and amount-consistency analysis, with database persistence, a soft-dismiss capability, and dismissal-aware re-detection.
-
-**Anomaly detection**
-- Unusual-transaction detection offered through two user-selectable methods — z-score and interquartile range (IQR) — each returning a human-readable reason.
-
-**Design system — "Modern Ledger"**
-- A deliberate visual identity grounded in bookkeeping: a cool "ledger paper" background rather than plain white, ink-black and ledger-red semantics ("in the black" / "in the red"), and monospaced tabular figures so financial numbers align in columns like a real statement.
-- Reusable, accessible components (button, text field, authentication layout) built on a CSS custom-property token system, so the entire theme can be adjusted from one place.
-
----
+The dashboard and design. The look is the Modern Ledger system, drawn from bookkeeping. A marble brand panel with gold veining, black and red for money in and out, and monospaced tabular figures. The dashboard shows the whole analytics engine, summary, categories, monthly trend, comparison, subscriptions and anomalies, with color spread through graduated bars, tinted cards and small accents. It is responsive.
 
 ## Project structure
 
-**Backend**
+Backend:
 
 ```
 backend/
-├── .env                    # secret key, token settings (git-ignored)
-├── finsight.db             # SQLite database (git-ignored)
-├── uploads/                # UUID-named uploaded files (git-ignored)
-└── app/
-    ├── main.py             # app setup, CORS, router registration
-    ├── core/               # configuration and security (hashing, JWT)
-    ├── db/                 # engine, session, base
-    ├── models/             # User, Statement, Transaction, Subscription
-    ├── schemas/            # Pydantic request/response models
-    ├── services/           # parsing, cleaning, categorization, analytics,
-    │                       #   subscriptions, anomalies
-    └── api/
-        ├── deps.py         # current-user dependency
-        └── routers/        # auth, users, statements, analytics
+  requirements.txt
+  .env                    (git-ignored)
+  finsight.db             (git-ignored)
+  uploads/                (git-ignored)
+  app/
+    main.py
+    core/                 config, security, rate_limit
+    db/
+    models/               User, Statement, Transaction, Subscription
+    schemas/
+    services/             csv_parser, pdf_parser, cleaner, redact,
+                          categorizer, analytics, subscriptions, anomalies
+    api/
+      deps.py
+      routers/            auth, users, statements, analytics
 ```
 
-**Frontend**
+Frontend:
 
 ```
 frontend/
-├── index.html
-├── vite.config.js
-├── package.json
-└── src/
-    ├── main.jsx            # entry — BrowserRouter + AuthProvider
-    ├── App.jsx             # route table
-    ├── index.css           # design tokens and base styles
-    ├── context/
-    │   └── AuthContext.jsx     # global auth state (user, login, logout)
-    ├── lib/
-    │   ├── api.js              # fetch wrapper: JSON + form bodies, bearer auth, errors
-    │   └── auth.js             # token storage helpers
-    ├── components/
-    │   ├── Button.jsx  (+ .module.css)
-    │   ├── TextField.jsx  (+ .module.css)
-    │   ├── AuthLayout.jsx  (+ .module.css)
-    │   └── ProtectedRoute.jsx
-    └── pages/
-        ├── Login.jsx
-        ├── Register.jsx
-        └── Dashboard.jsx
+  src/
+    main.jsx
+    App.jsx
+    index.css
+    context/AuthContext.jsx
+    lib/                  api.js, auth.js, format.js
+    components/           Button, TextField, AuthLayout, ProtectedRoute
+    pages/                Login, Register, Upload, Dashboard
 ```
-
----
 
 ## Data models
 
-- **User:** id, email (unique), full name, hashed password, active flag, created-at.
-- **Statement:** id, owner, original filename, stored (UUID) filename, file type, status (uploaded → processed), uploaded-at.
-- **Transaction:** id, owner, statement, date, description, amount (positive magnitude), type (income / expense), category, balance (optional), created-at.
-- **Subscription:** id, owner, merchant, average amount, frequency, occurrences, estimated annual cost, confidence, last payment, dismissed flag, detected-at.
-
----
+User has an id, a unique email, a full name, the hashed password, an active flag and a created date. Statement has an id, its owner, the original filename, the stored UUID filename, the file type, a status and an upload time. Transaction has an id, its owner, the statement it came from, a date, a redacted description, an amount, a type of income or expense, a category, a balance and a created time. Subscription has an id, its owner, the merchant, the average amount, the frequency, how many times it occurred, an estimated annual cost, a confidence, the last payment, a dismissed flag and a detected time.
 
 ## API endpoints
 
-**Authentication**
-- `POST /api/auth/register` — create a user
-- `POST /api/auth/login` — obtain a JWT (OAuth2 password flow)
-- `GET /api/users/me` — current user (protected)
+Auth:
+- POST /api/auth/register
+- POST /api/auth/login, rate limited
+- GET /api/users/me, protected
 
-**Statements and pipeline**
-- `POST /api/statements/upload` — validate and store an uploaded file
-- `GET /api/statements` — list the user's statements
-- `GET /api/statements/{id}/preview` — parse and clean, without storing
-- `POST /api/statements/{id}/confirm` — store transactions, auto-categorize, de-duplicate
-- `GET /api/statements/{id}/transactions` — stored transactions for a statement
-- `POST /api/statements/{id}/categorize` — re-categorize stored transactions
+Statements:
+- POST /api/statements/upload, validates, stores, and decrypts PDFs with an optional password
+- GET /api/statements
+- GET /api/statements/{id}/preview
+- POST /api/statements/{id}/confirm, redacts, categorizes, de-duplicates and stores
+- GET /api/statements/{id}/transactions
+- POST /api/statements/{id}/categorize
 
-**Analytics**
-- `GET /api/analytics/summary` — totals, savings rate, category breakdown, biggest expense
-- `GET /api/analytics/monthly` — per-month breakdown
-- `GET /api/analytics/comparison` — last-two-months comparison with insights
-- `GET /api/analytics/subscriptions` — live detection
-- `POST /api/analytics/subscriptions/detect` — detect and store
-- `GET /api/analytics/subscriptions/saved` — stored subscriptions
-- `PATCH /api/analytics/subscriptions/{id}/dismiss` — soft-dismiss a subscription
-- `GET /api/analytics/anomalies?method=zscore|iqr` — unusual-transaction detection
+Analytics:
+- GET /api/analytics/summary
+- GET /api/analytics/monthly
+- GET /api/analytics/comparison
+- GET /api/analytics/subscriptions, POST .../detect, GET .../saved, PATCH .../{id}/dismiss
+- GET /api/analytics/anomalies?method=zscore or iqr
 
----
+## Decisions and problems worth noting
 
-## Notable engineering decisions and problems solved
+The PDF parser reuses the CSV parser's column vocabulary and returns the same rows, so cleaning, redaction, categorization and de-duplication don't care about the source format. That one decision is what kept the PDF feature small.
 
-- **NaN and JSON serialization.** Empty cells become `NaN` in pandas, which is not valid JSON and caused serialization failures. Because pandas can silently coerce `None` back to `NaN` inside a float column, values are sanitized to `None` only *after* leaving the DataFrame.
-- **Ambiguous date parsing.** Applying day-first parsing globally corrupted ISO dates (e.g. `2026-08-01` read as 8 January). ISO-formatted dates are now detected first, and day-first interpretation is applied only to non-ISO input.
-- **Subscription false positives.** Early detection flagged coincidental repeats. Detection now requires a minimum number of occurrences and an amount-consistency check (coefficient of variation) before a merchant is treated as recurring.
-- **Duplicate data pollution.** Re-importing a statement previously doubled transactions and skewed analytics. A content-based duplicate guard now skips any transaction matching an existing owner, date, description, and amount.
-- **Robustness of anomaly methods.** A single extreme outlier inflates the mean and standard deviation, which can hide smaller anomalies from the z-score method; the median-based IQR method stays robust. Offering both, side by side, makes the trade-off explicit.
-- **Cross-origin access.** The browser blocks responses between the frontend (`:5173`) and backend (`:8000`) as different origins; CORS middleware on the backend grants access to the specific development origin, rather than using a permissive wildcard.
-- **Login content type.** The OAuth2 password flow expects form-encoded data with a `username` field, not JSON, so the API client sends the two request styles appropriately.
-- **Token storage trade-off.** The JWT is stored in `localStorage` for simplicity; this is readable by JavaScript and therefore exposed to XSS, whereas an httpOnly cookie with CSRF protection is the more secure production choice. The trade-off is understood and documented rather than accidental.
+Redaction runs before categorization and before the database write, so sensitive data never lands in a stored row. I checked this on both CSV and PDF imports.
 
-**Working practices.** Development proceeds in small, independently verifiable steps; each commit is confirmed working before it is pushed, so every point in the history builds and runs. Behaviour is verified against actual response data, not only HTTP status codes, and previously passing cases are re-checked after each change.
+Encrypted PDFs are decrypted once, in memory, when they are uploaded. A missing or wrong password fails cleanly before any record gets created, so there is no orphaned file or half import.
 
----
+Empty cells turn into NaN in pandas, which isn't valid JSON, and pandas can quietly turn None back into NaN inside a float column, so values only get cleaned to None after they leave the DataFrame.
 
-## Running locally
+Day first date parsing was corrupting ISO dates, so ISO format is detected first and day first is only applied to the rest.
 
-Both servers run together during development.
+Subscription detection needed a floor. It requires a few occurrences and a check on how consistent the amounts are before it calls something recurring, otherwise coincidences get flagged.
 
-**Backend**
+The two anomaly methods exist on purpose. A single large outlier drags up the mean and standard deviation that z-score depends on, which can hide smaller anomalies, while the median based IQR method isn't thrown off the same way. Having both with a live toggle makes that trade off something you can show rather than just describe.
+
+The duplicate guard keys on owner, date, description and amount, so re-importing the same statement adds nothing. Its limit is that a duplicate with a reworded description would slip past the exact match.
+
+## Security
+
+Passwords are hashed, data is separated per user, identifiers are redacted before storage, PDF passwords stay in memory, and logins are rate limited. SECURITY.md has the full account, including the parts I would still harden before this went to production.
+
+## Running it locally
+
+Both servers run together.
+
+Backend:
+
 ```
 cd backend
 python -m venv venv
-venv\Scripts\activate            # Windows
+venv\Scripts\activate
 pip install -r requirements.txt
-# create .env with SECRET_KEY and token settings
-fastapi dev app/main.py          # serves on http://localhost:8000
+fastapi dev app/main.py
 ```
 
-**Frontend**
+Add a .env with a SECRET_KEY and token settings first. It serves on http://localhost:8000.
+
+Frontend:
+
 ```
 cd frontend
 npm install
-npm run dev                      # serves on http://localhost:5173
+npm run dev
 ```
 
----
+It serves on http://localhost:5173.
 
 ## Roadmap
 
-- **Responsive layout** for the authentication pages and dashboard (mobile and tablet).
-- **Data dashboard** consuming the analytics endpoints — summary figures, category breakdown, monthly trends, subscriptions, and anomalies — rendered in the Modern Ledger style.
-- **Refined visual identity** — a marble brand panel; the art direction is chosen, with a license-clear asset to be finalized.
-- **Additional backend capabilities** — XLSX and PDF statement parsing, a financial health score, budget recommendations, savings goals, cash-flow prediction, natural-language summaries, and data export.
-- **Automated testing.**
+An LLM based extraction path for PDF layouts the current parser can't handle. XLSX support. A financial health score with budget and savings goal suggestions. Cash flow prediction and written summaries. Data export. And an automated test suite.

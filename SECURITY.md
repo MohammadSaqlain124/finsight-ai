@@ -1,100 +1,49 @@
 # Security
 
-This document describes FinSight AI's security posture: the protections that are
-implemented, and — just as importantly — the known limitations and what would be
-hardened for a production deployment. It is written to be honest about the
-boundary between "safe for a real project" and "production-grade."
+This is an honest account of where FinSight AI stands on security. What is actually protected, and what I would still need to harden before calling it production ready. I've tried not to overstate anything.
 
-## Implemented protections
+## What's protected
 
-**Password storage.** Passwords are hashed with **bcrypt** (per-password salt) and
-never stored or logged in plaintext. Login verifies by hashing the submitted
-password and comparing — the original is never recoverable from the database.
+Passwords are hashed with bcrypt, each with its own salt, and never stored or logged in plain text. Login checks a password by hashing it and comparing, so the original can't be recovered from the database.
 
-**Authentication.** Access is controlled with **JWTs** signed using a secret key
-(HS256) and carrying an expiry (`exp`). Tokens are verified by signature and
-expiry on every protected request. The scheme is **stateless** — no server-side
-session store — which keeps it simple and scalable.
+Access is controlled with JWTs, signed with a secret key and carrying an expiry. Every protected request checks the signature and the expiry. There is no server side session store, which keeps the setup simple and easy to scale.
 
-**Per-user data isolation.** Every database query for statements, transactions,
-subscriptions, and analytics is filtered by the authenticated user's id. One user
-cannot read or affect another user's data, even by guessing record ids.
+Every query for statements, transactions, subscriptions and analytics is filtered by the logged in user's id, so one user can't reach another's data even by guessing record ids.
 
-**Upload safety.** Uploaded files are stored under **randomly generated UUID
-filenames**, never the user-supplied name — this prevents path-traversal and
-filename-collision attacks. Uploads are validated against an **extension
-allowlist** (CSV, PDF) and a **size limit**.
+Uploaded files are saved under random UUID filenames rather than whatever the user's file was called, which avoids path traversal and filename collisions. Uploads are checked against an allowed list of extensions and a size limit.
 
-**Cross-origin policy.** CORS is restricted to explicit development origins
-(`localhost:5173`, `127.0.0.1:5173`), not a permissive wildcard, so only the
-intended frontend can call the API from a browser.
+CORS only allows the frontend's own origin during development, not a wildcard, so a random site can't call the API from someone's browser.
 
-**Privacy — identifier redaction.** Before any transaction is written to the
-database, its description is passed through a redaction step that strips account
-numbers, CIF numbers, IFSC codes, PAN, and long digit runs, replacing them with
-safe placeholders (e.g. `[ACCOUNT]`, `[IFSC]`). Sensitive identifiers therefore
-never reach stored transaction data. *(Best-effort, regex-based — see limitations.)*
+On privacy, every transaction description is run through a redaction step before it is stored. Account numbers, CIF, IFSC and PAN are replaced with placeholders, and the specific patterns are checked before the general catch-all. Sensitive identifiers don't reach stored data. It is regex based and best effort, which I come back to below.
 
-**PDF password handling.** Passwords for encrypted PDF statements are used **only
-in memory**, once, to decrypt at upload time. They are never stored, logged, or
-returned in any response.
+Passwords for encrypted PDFs are only used in memory, once, to decrypt the file at upload. They are never stored, logged, or returned in a response.
 
-**Login rate limiting.** Repeated failed logins from the same client are throttled
-(5 failures per 5-minute sliding window → HTTP 429), which blunts brute-force
-password guessing. Successful logins reset the counter, so legitimate use is
-unaffected.
+Logins are rate limited. Too many failed attempts from one client in a short window get blocked with a 429, which takes the sting out of brute forcing. A successful login resets the count, so normal use isn't affected.
 
-## Known limitations and production hardening
+## What I'd harden for production
 
-These are conscious trade-offs appropriate for a development/academic build, with
-the production-grade alternative noted for each.
+These are deliberate trade offs for a development and academic build, with what I would do differently noted for each.
 
-**Token storage (XSS exposure).** The JWT is stored in the browser's
-`localStorage`, which is readable by JavaScript and therefore exposed if the app
-ever has a cross-site-scripting (XSS) flaw. *Production:* store the token in an
-**httpOnly cookie** (unreadable by JS) with **CSRF protection**.
+The token is kept in the browser's localStorage, which JavaScript can read, so a cross site scripting bug would expose it. The stronger option is an httpOnly cookie that JavaScript can't touch, with CSRF protection added.
 
-**Transport (no TLS in dev).** Development runs over plain HTTP, so tokens and
-passwords travel unencrypted on the local machine. *Production:* serve over
-**HTTPS/TLS** so credentials cannot be sniffed in transit.
+Development runs over plain HTTP, so nothing is encrypted on the wire locally. Production would run over HTTPS so tokens and passwords can't be sniffed in transit.
 
-**Rate limiter scope.** The limiter is **in-memory and per-process**, so it resets
-on restart and is not shared across multiple server workers. It is keyed on client
-IP, which behind a proxy would see the proxy's address. *Production:* a
-**Redis-backed** limiter (e.g. `slowapi`) shared across workers, keyed on IP and/or
-username, honouring `X-Forwarded-For` from a trusted proxy.
+The rate limiter lives in memory in a single process, so it resets on restart and isn't shared across multiple workers. It is keyed on client IP, which behind a proxy would only see the proxy. A production version would use something like a Redis backed limiter shared across workers, keyed on IP and username, reading the real client IP from a trusted proxy header.
 
-**Secret management.** The JWT `SECRET_KEY` is loaded from a git-ignored `.env`
-file. If it were ever committed, tokens could be forged. *Production:* inject the
-secret from a **secrets manager / environment**, and rotate it.
+The JWT secret key is loaded from a git-ignored .env file. If it ever got committed, tokens could be forged. In production the secret should come from a secrets manager and be rotated.
 
-**Database.** SQLite is used for development — file-based and zero-config, but weak
-under high write concurrency. *Production:* **PostgreSQL** (a connection-string
-change, since data access goes through the SQLAlchemy ORM).
+SQLite is fine for development but doesn't hold up well under heavy concurrent writes. Because data access goes through the SQLAlchemy ORM, moving to PostgreSQL is mostly a connection string change.
 
-**Raw uploaded files retain sensitive data.** Redaction protects the *database*,
-but the original uploaded statement (CSV/PDF, decrypted) still sits on disk with
-full account numbers. *Production:* **encrypt at rest** and/or **delete the raw
-file** once transactions are extracted.
+Redaction protects the database, but the original uploaded file still sits on disk with full account numbers in it. Production would encrypt those at rest, or delete the raw file once the transactions have been pulled out.
 
-**File validation is extension-based.** Uploads are checked by extension and size,
-not by verifying the file's actual content is a safe, well-formed statement.
-*Production:* validate content/MIME and scan untrusted uploads.
+File validation only checks the extension and size, not that the contents are actually a safe, well formed statement. A production version would check the real content and scan untrusted uploads.
 
-**Password policy.** Only a minimum length (8 characters) is enforced.
-*Production:* add complexity/breach-list checks and optional MFA.
+The password policy only enforces a minimum length of eight characters. Adding complexity or breach list checks, and optional MFA, would be the next step.
 
-**Redaction is best-effort.** The regex approach masks labelled identifiers and
-long digit runs, but an unlabelled, short account number could slip through, and
-it is not a guarantee. It reduces exposure; it does not eliminate it.
+Redaction is best effort. It catches labelled identifiers and long runs of digits, but a short, unlabelled account number could get through. It reduces exposure, it doesn't guarantee it.
 
-**Duplicate-guard integrity note (not a vulnerability).** Re-importing a statement
-is safe from double-counting because a content-based guard skips transactions
-matching an existing `date + description + amount`. Its limit is that a duplicate
-whose description was *reworded* would not be caught; a more robust version would
-fuzzy-match descriptions or use a bank-provided transaction reference id.
+One last thing that isn't a vulnerability but is worth being clear about. Re-importing a statement won't double count, because a transaction matching an existing one on date, description and amount is skipped. The limit is that a duplicate whose description was reworded wouldn't be caught. A stronger version would fuzzy match descriptions or use a bank's own transaction reference.
 
 ## Reporting
 
-This is an academic capstone project. Security concerns can be raised via the
-repository's issue tracker.
+This is an academic project. Anything security related can be raised through the repository's issue tracker.
