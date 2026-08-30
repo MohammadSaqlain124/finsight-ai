@@ -1,23 +1,25 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from app.core.config import settings
 
-# For now this is hardcoded. In Step 3, when we add secret keys for login,
-# we'll move this into a proper config/.env file. One thing at a time.
-DATABASE_URL = "sqlite:///./finsight.db"
+database_url = settings.DATABASE_URL
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},  # SQLite-specific; needed for FastAPI
-)
+# Some hosts hand out the older "postgres://" scheme, which SQLAlchemy rejects.
+# Normalize it to "postgresql://".
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
 
-# A factory that produces new Session objects when we need them.
+# check_same_thread is SQLite only, so only pass it for SQLite.
+connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
+
+engine = create_engine(database_url, connect_args=connect_args, pool_pre_ping=True)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def get_db():
-    """Hands a fresh database session to whoever needs it, then guarantees
-    it gets closed afterward — even if an error happens. FastAPI calls this
-    automatically for each request in later steps."""
+    """Hands out a fresh database session and closes it afterward, even if an
+    error happens."""
     db = SessionLocal()
     try:
         yield db

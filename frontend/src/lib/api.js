@@ -1,6 +1,8 @@
 import { getToken } from './auth'
 
-const BASE_URL = 'http://localhost:8000'
+// Falls back to localhost in dev. In production, set VITE_API_URL to the
+// deployed backend URL in the hosting environment.
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export async function apiFetch(path, { method = 'GET', body, form, formData } = {}) {
   const options = { method, headers: {} }
@@ -11,8 +13,6 @@ export async function apiFetch(path, { method = 'GET', body, form, formData } = 
   }
 
   if (formData !== undefined) {
-    // multipart/form-data — DON'T set Content-Type; the browser must set it
-    // itself so it can include the multipart boundary marker.
     options.body = formData
   } else if (form !== undefined) {
     options.headers['Content-Type'] = 'application/x-www-form-urlencoded'
