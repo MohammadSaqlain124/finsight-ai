@@ -6,7 +6,6 @@ import { formatINR, formatMonth } from '../lib/format'
 import Button from '../components/Button'
 import styles from './Dashboard.module.css'
 
-// Deepest → lightest green. Bars are coloured by rank (biggest = deepest).
 const BAR_SHADES = ['#2E4A3E', '#3E5A4C', '#557061', '#7A8E82', '#9AA99F']
 const barShade = (rank) => BAR_SHADES[Math.min(rank, BAR_SHADES.length - 1)]
 
@@ -38,8 +37,13 @@ function Dashboard() {
   const [anomalyMethod, setAnomalyMethod] = useState('zscore')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
   useEffect(() => {
+    setLoading(true)
+    setError('')
     apiFetch('/api/analytics/summary')
       .then(setSummary)
       .catch((err) => setError(err.message))
@@ -47,17 +51,35 @@ function Dashboard() {
     apiFetch('/api/analytics/subscriptions').then(setSubs).catch(() => {})
     apiFetch('/api/analytics/monthly').then(setMonthly).catch(() => {})
     apiFetch('/api/analytics/comparison').then(setComparison).catch(() => {})
-  }, [])
+  }, [refreshKey])
 
   useEffect(() => {
     apiFetch(`/api/analytics/anomalies?method=${anomalyMethod}`)
       .then(setAnomalies)
       .catch(() => {})
-  }, [anomalyMethod])
+  }, [anomalyMethod, refreshKey])
 
   function handleLogout() {
     logout()
     navigate('/login')
+  }
+
+  async function handleReset() {
+    setResetting(true)
+    setError('')
+    try {
+      await apiFetch('/api/statements/reset', { method: 'DELETE' })
+      setConfirmReset(false)
+      setSubs(null)
+      setMonthly(null)
+      setComparison(null)
+      setAnomalies(null)
+      setRefreshKey((k) => k + 1)   // re-fetch everything; dashboard goes empty
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setResetting(false)
+    }
   }
 
   const hasData = summary && summary.transaction_count > 0
@@ -66,7 +88,6 @@ function Dashboard() {
       ? Math.max(...monthly.months.map((m) => m.expenses), 1)
       : 1
 
-  // Rank each month by expense so the tallest bar gets the deepest shade.
   const monthRank = {}
   if (monthly && monthly.months.length > 0) {
     const ranked = [...monthly.months].sort((a, b) => b.expenses - a.expenses)
@@ -345,6 +366,35 @@ function Dashboard() {
                     ))}
                   </div>
                 </>
+              )}
+            </section>
+
+            <section className={styles.block}>
+              <SectionHead title="Reset data" />
+              <p className={styles.muted}>
+                Remove all your imported transactions, statements and detected subscriptions, and
+                start fresh. Your account stays. This can’t be undone.
+              </p>
+              {!confirmReset ? (
+                <button
+                  className={styles.dangerBtn}
+                  style={{ marginTop: '1rem' }}
+                  onClick={() => setConfirmReset(true)}
+                >
+                  Reset my data
+                </button>
+              ) : (
+                <div className={styles.confirmReset}>
+                  <span className={styles.dangerText}>
+                    This permanently deletes everything you’ve imported. Are you sure?
+                  </span>
+                  <button className={styles.dangerBtn} onClick={handleReset} disabled={resetting}>
+                    {resetting ? 'Deleting…' : 'Yes, delete it all'}
+                  </button>
+                  <button className={styles.cancelBtn} onClick={() => setConfirmReset(false)} disabled={resetting}>
+                    Cancel
+                  </button>
+                </div>
               )}
             </section>
           </>

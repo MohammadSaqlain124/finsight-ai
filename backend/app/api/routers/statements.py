@@ -16,6 +16,7 @@ from app.models.transaction import Transaction
 from app.schemas.transaction import TransactionRead
 from app.services.categorizer import categorize
 from app.services.redact import redact_text
+from app.models.subscription import Subscription
 
 router = APIRouter(prefix="/api/statements", tags=["statements"])
 
@@ -208,6 +209,44 @@ def confirm_import(
     for txn in new_transactions:
         db.refresh(txn)
     return new_transactions
+
+@router.delete("/reset")
+def reset_my_data(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete all of the current user's transactions, statements, and detected
+    subscriptions, and remove their uploaded files from disk. The account itself
+    is left intact. This is irreversible."""
+    statements = (
+        db.query(Statement).filter(Statement.user_id == current_user.id).all()
+    )
+
+    # Counts for the response summary.
+    txn_count = db.query(Transaction).filter(Transaction.user_id == current_user.id).count()
+    sub_count = db.query(Subscription).filter(Subscription.user_id == current_user.id).count()
+    stmt_count = len(statements)
+
+    # Remove the raw uploaded files, which still contain full statement data.
+    for s in statements:
+        path = os.path.join(settings.UPLOAD_DIR, s.stored_filename)
+        if os.path.exists(path):
+            os.remove(path)
+
+    # Delete rows for THIS user only, in a foreign-key-safe order:
+    # transactions reference statements, so they go first.
+    db.query(Transaction).filter(Transaction.user_id == current_user.id).delete(synchronize_session=False)
+    db.query(Subscription).filter(Subscription.user_id == current_user.id).delete(synchronize_session=False)
+    db.query(Statement).filter(Statement.user_id == current_user.id).delete(synchronize_session=False)
+    db.commit()
+
+    return {
+        "deleted": {
+            "transactions": txn_count,
+            "statements": stmt_count,
+            "subscriptions": sub_count,
+        }
+    }
 
 
 @router.get("/{statement_id}/transactions", response_model=list[TransactionRead])

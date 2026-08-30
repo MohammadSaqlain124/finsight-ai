@@ -1,6 +1,5 @@
 .page { min-height: 100vh; background: var(--paper); }
 
-/* Marble letterhead — maroon-to-green sweep + gold veins */
 .header {
   position: relative; overflow: hidden;
   display: flex; align-items: center; justify-content: space-between;
@@ -28,9 +27,8 @@
 .muted { color: var(--ink-soft); }
 .error { color: var(--ledger-red); }
 
-/* Tinted hero */
 .hero {
-  background: linear-gradient(125deg, #E6EEE4 0%, #EFF2EA 55%, #F4F5EF 100%);
+  position: relative; background: linear-gradient(125deg, #E6EEE4 0%, #EFF2EA 55%, #F4F5EF 100%);
   border: 1px solid var(--rule); border-top: 3px solid var(--gold); border-radius: 14px;
   padding: 2.1rem 2.4rem; box-shadow: 0 1px 3px rgba(20, 10, 10, 0.05);
 }
@@ -43,24 +41,20 @@
   border: 1px solid rgba(46, 74, 62, 0.18); border-radius: 999px; font-size: 0.8rem; color: var(--pine);
 }
 
-/* Tinted cards */
 .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.25rem; }
 .card { background: #EDF1EA; border: 1px solid var(--rule); border-radius: 12px; padding: 1.2rem 1.4rem; box-shadow: 0 1px 3px rgba(20, 10, 10, 0.04); }
 .cardLabel { color: var(--ink-soft); font-size: var(--text-sm); margin-bottom: 0.5rem; }
 .cardFigure { font-size: var(--text-xl); }
 
-/* Section header with gold tick */
 .block { margin-top: 2.75rem; }
 .sectionHead { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1.35rem; }
 .sectionTick { width: 3px; height: 1.15em; background: var(--gold); border-radius: 2px; flex: none; }
 .sectionTitle { font-family: var(--font-display); font-weight: 600; font-size: var(--text-xl); white-space: nowrap; }
 .sectionRule { flex: 1; height: 1px; background: var(--rule); }
 
-/* Bars — track; fill colour is set inline (graduated by rank) */
 .bar { height: 9px; background: #E2E4DB; border-radius: 999px; overflow: hidden; }
 .barFill { height: 100%; background: var(--pine); border-radius: 999px; }
 
-/* Category breakdown */
 .breakdown { display: flex; flex-direction: column; gap: 1.25rem; }
 .breakdownRow { display: flex; flex-direction: column; gap: 0.375rem; }
 .breakdownHead { display: flex; justify-content: space-between; align-items: baseline; }
@@ -69,7 +63,6 @@
 .breakdownPct { font-size: var(--text-sm); color: var(--ink-soft); }
 .biggest { margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--rule); color: var(--ink-soft); }
 
-/* Monthly trend */
 .monthList { display: flex; flex-direction: column; gap: 1.25rem; }
 .monthRow { display: flex; flex-direction: column; gap: 0.375rem; }
 .monthHead { display: flex; justify-content: space-between; align-items: baseline; }
@@ -77,7 +70,6 @@
 .monthAmt { font-size: var(--text-base); }
 .monthMeta { font-size: var(--text-sm); color: var(--ink-soft); }
 
-/* What changed — insight left-stripe + tinted compare cards */
 .insights {
   list-style: none; display: flex; flex-direction: column; gap: 0.7rem; margin-top: 1rem;
   border-left: 2px solid rgba(46, 74, 62, 0.30); padding: 0.2rem 0 0.2rem 1.1rem;
@@ -92,7 +84,6 @@
 .tone_bad { color: var(--ledger-red); }
 .tone_flat { color: var(--ink-soft); }
 
-/* Recurring payments */
 .subsList { display: flex; flex-direction: column; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(20, 10, 10, 0.04); }
 .subRow { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.35rem; border-bottom: 1px solid var(--rule); background: var(--paper-raised); }
 .subRow:last-child { border-bottom: none; }
@@ -103,7 +94,6 @@
 .subAmt { font-size: var(--text-base); }
 .subAnnual { font-size: var(--text-sm); color: var(--ink-soft); }
 
-/* Anomalies — maroon left-accent rows */
 .toggle { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; margin-bottom: 1rem; }
 .toggleBtn { font-family: var(--font-ui); font-size: var(--text-sm); padding: 0.4rem 0.95rem; background: transparent; color: var(--ink-soft); border: none; cursor: pointer; transition: background-color 120ms ease, color 120ms ease; }
 .toggleBtn + .toggleBtn { border-left: 1px solid var(--rule); }
@@ -117,17 +107,33 @@
 .anomReason { color: var(--ink-soft); font-size: var(--text-sm); }
 .anomMeta { display: block; margin-top: 0.35rem; font-size: var(--text-sm); color: var(--ink-soft); }
 
-/* Empty */
+/* Reset data */
+.dangerBtn {
+  font-family: var(--font-ui); font-size: var(--text-sm); font-weight: 600;
+  padding: 0.6rem 1.2rem; border: 1px solid var(--ledger-red); border-radius: 6px;
+  background: transparent; color: var(--ledger-red); cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.dangerBtn:hover:not(:disabled) { background: var(--ledger-red); color: var(--paper); }
+.dangerBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+.cancelBtn {
+  font-family: var(--font-ui); font-size: var(--text-sm);
+  padding: 0.6rem 1rem; border: 1px solid var(--rule); border-radius: 6px;
+  background: transparent; color: var(--ink-soft); cursor: pointer;
+}
+.cancelBtn:hover:not(:disabled) { color: var(--ink); }
+.confirmReset { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; }
+.dangerText { color: var(--ledger-red); font-size: var(--text-sm); }
+
 .empty { max-width: 480px; margin: 4rem auto; text-align: center; }
 .emptyTitle { font-family: var(--font-display); font-size: var(--text-2xl); margin-bottom: 0.75rem; }
 
 @media (max-width: 720px) {
-  .header { padding: 1rem 1.25rem; flex-wrap: wrap; gap: 0.75rem; }
+  .header { padding: 1rem 1.25rem; flex-wrap: wrap; gap: 1rem; }
   .main { padding: 2rem 1.25rem 3rem; }
   .metrics { grid-template-columns: 1fr; }
   .compareGrid { grid-template-columns: 1fr; }
   .heroFigure { font-size: var(--text-2xl); }
-  .hero { padding: 1.6rem 1.5rem; }
   .subRow { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
   .subAmounts { align-items: flex-start; }
 }
