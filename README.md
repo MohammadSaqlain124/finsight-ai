@@ -1,5 +1,7 @@
 # FinSight AI
 
+**Live app:** https://finsight-ai-blond.vercel.app
+
 FinSight AI is a personal finance analyzer I built for my final year B.Tech project. You upload a bank statement, either a CSV or a PDF, and it reads through the transactions, cleans them up, removes anything sensitive like account numbers, sorts them into categories, and shows you what your money is actually doing. Spending summaries, category breakdowns, monthly trends, recurring payments and a few other views, all on one dashboard.
 
 I wrote it so I can explain every decision in it, not just get it running.
